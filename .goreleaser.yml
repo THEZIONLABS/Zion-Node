@@ -1,0 +1,75 @@
+# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
+version: 2
+
+project_name: zion-node
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: zion-node
+    main: ./cmd/zion-node/
+    binary: zion-node
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X github.com/zion-protocol/zion-node/internal/daemon.Version={{.Version}}
+      - -X github.com/zion-protocol/zion-node/internal/daemon.Commit={{.Commit}}
+      - -X github.com/zion-protocol/zion-node/internal/daemon.BuildTime={{.Date}}
+
+archives:
+  - id: default
+    format: tar.gz
+    name_template: "{{ .ProjectName }}-{{ .Version }}-{{ .Os }}-{{ .Arch }}"
+
+checksum:
+  name_template: "checksums.txt"
+
+release:
+  github:
+    owner: THEZIONLABS
+    name: Zion-Node
+  draft: false
+  prerelease: auto
+  name_template: "Zion Node {{ .Version }}"
+  header: |
+    ## Zion Node {{ .Version }}
+
+    ### Manual Download
+
+    | Platform | Architecture | Download |
+    |----------|-------------|----------|
+    | Linux    | x86_64      | `zion-node-{{ .Version }}-linux-amd64.tar.gz` |
+    | Linux    | ARM64       | `zion-node-{{ .Version }}-linux-arm64.tar.gz` |
+    | macOS    | x86_64      | `zion-node-{{ .Version }}-darwin-amd64.tar.gz` |
+    | macOS    | ARM64 (M1+) | `zion-node-{{ .Version }}-darwin-arm64.tar.gz` |
+  footer: |
+    ### Post-Install
+
+    ```bash
+    # Create wallet
+    zion-node wallet new
+
+    # Edit config
+    nano ~/.zion-node/config.toml
+
+    # Start node
+    zion-node --config ~/.zion-node/config.toml
+    ```
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^ci:"
+      - "^chore:"
