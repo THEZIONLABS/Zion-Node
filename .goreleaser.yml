@@ -49,6 +49,12 @@ release:
   header: |
     ## Zion Node {{ .Version }}
 
+    ### Quick Install
+
+    ```bash
+    curl -fsSL https://raw.githubusercontent.com/THEZIONLABS/Zion-Node/main/scripts/install.sh | bash
+    ```
+
     ### Manual Download
 
     | Platform | Architecture | Download |

@@ -2,9 +2,15 @@
 
 Zion Node is the execution layer of the Zion Protocol, responsible for running AI agents in containerized environments and reporting state to the Hub.
 
-## Quick Start
+## Install
 
-### 1. Build
+### One-liner (Linux / macOS)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/THEZIONLABS/Zion-Node/main/scripts/install.sh | bash
+```
+
+### Build from source
 
 ```bash
 ./scripts/build.sh
@@ -12,17 +18,19 @@ Zion Node is the execution layer of the Zion Protocol, responsible for running A
 
 This compiles the node binary to `./release/zion-node`.
 
-### 2. Create Wallet
+## Quick Start
+
+### 1. Create Wallet
 
 ```bash
-./release/zion-node wallet new
+zion-node wallet new
 ```
 
 This generates a new Ethereum wallet and saves it to `~/.zion-node/wallet.json`.
 
 **⚠️ IMPORTANT:** Save your private key securely! It's displayed only once.
 
-### 3. Configure
+### 2. Configure
 
 ```bash
 cp config.example.toml config.toml
@@ -32,10 +40,10 @@ Edit `config.toml` and update:
 - `hub_url`: Set to your Hub endpoint (e.g., `https://hub.zion.example`)
 - `node_id`: Choose a unique identifier for your node
 
-### 4. Run
+### 3. Run
 
 ```bash
-./release/zion-node --config config.toml
+zion-node --config config.toml
 ```
 
 The node will:
@@ -68,13 +76,13 @@ Key settings:
 
 ```bash
 # Create new wallet
-./release/zion-node wallet new
+zion-node wallet new
 
 # Show existing wallet address
-./release/zion-node wallet show
+zion-node wallet show
 
 # Export private key
-./release/zion-node wallet export
+zion-node wallet export
 ```
 
 See [docs/WALLET_README.md](docs/WALLET_README.md) for more details.
@@ -90,7 +98,7 @@ cp config.local.toml config.toml
 # Start the Hub separately (see Hub repo documentation)
 
 # Run the node
-./release/zion-node --config config.toml
+zion-node --config config.toml
 ```
 
 See [docs/QUICKSTART.md](docs/QUICKSTART.md) for detailed local development setup.
