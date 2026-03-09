@@ -47,3 +47,14 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Verify binary version
+        run: |
+          TAG="${{ github.ref_name }}"
+          EXPECTED="${TAG#v}"
+          ACTUAL=$(./dist/zion-node_linux_amd64_v1/zion-node version 2>&1 | awk '{print $NF}')
+          if [[ "$ACTUAL" != "$EXPECTED" ]]; then
+            echo "::error::Version mismatch: binary reports '$ACTUAL', expected '$EXPECTED'"
+            exit 1
+          fi
+          echo "Version verified: $ACTUAL"

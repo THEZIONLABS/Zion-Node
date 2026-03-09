@@ -21,7 +21,7 @@ logs/
 # Build artifacts
 release/
 dist/
-zion-node
+/zion-node
 
 # Temporary files from Go toolchain
 config.remote.toml
