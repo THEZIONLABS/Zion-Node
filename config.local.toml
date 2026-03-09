@@ -1,0 +1,42 @@
+# Zion Node — Local Development Configuration
+# Usage: ./zion-node --config config.local.toml
+
+# Node identity
+node_id = "local-dev-node-007"
+# operator_address will be auto-loaded from wallet (~/.zion-node/wallet.json)
+
+# Wallet directory (default: ~/.zion-node)
+# wallet_dir = "/tmp/my-dev-wallet"
+
+# Hub connection (local Hub: cd hub && npm run dev)
+hub_url = "http://localhost:3000"
+# hub_public_key is automatically fetched from hub at startup (GET /v1/system/signing-key)
+
+# Capacity
+max_agents = 10
+cpu_per_agent = 1
+memory_per_agent = 1024  # MB
+storage_per_agent = 10240  # MB
+
+# Storage
+data_dir = "./data"
+snapshot_cache = "./cache"
+
+# Container
+container_engine = "docker"
+runtime_image = "alpine/openclaw:main"
+
+# Heartbeat
+heartbeat_interval = 10  # seconds (faster for local dev)
+heartbeat_retry_max = 3
+heartbeat_retry_interval = 5  # seconds
+
+# Snapshot
+snapshot_retention_days = 3
+
+# Logging
+log_dir = "./logs"
+log_level = "debug"  # verbose for local development
+
+# HTTP
+http_timeout = 10  # seconds
