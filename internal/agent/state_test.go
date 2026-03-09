@@ -54,8 +54,12 @@ func TestStateManager_LoadEmptyFile(t *testing.T) {
 	}
 
 	err := sm.Load()
-	if err == nil {
-		t.Error("Expected error loading empty file, got nil")
+	if err != nil {
+		t.Errorf("Expected nil error for empty file (treated as empty state), got: %v", err)
+	}
+
+	if len(sm.agents) != 0 {
+		t.Errorf("Expected empty agents map, got %d agents", len(sm.agents))
 	}
 }
 
