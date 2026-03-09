@@ -1,0 +1,28 @@
+.go
+
+# Runtime config files (use config.example.toml as template)
+# config.local.toml and config.remote.toml are checked in as examples
+config.toml
+
+# Environment files
+.env
+.env.*
+
+# Runtime data
+data/agents/
+data/agents.json
+cache/
+logs/
+
+# IDE
+.vscode/
+.idea/
+
+# Build artifacts
+release/
+dist/
+zion-node
+
+# Temporary files from Go toolchain
+config.remote.toml
+internal/agent/agents.json
