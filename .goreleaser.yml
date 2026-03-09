@@ -38,6 +38,12 @@ release:
     owner: THEZIONLABS
     name: Zion-Node
   draft: false
+  # Tags with -rc, -beta, -alpha are automatically marked as prerelease.
+  # Stable tags (e.g. v0.1.0) are marked as latest.
+  # Examples:
+  #   v0.2.0-rc.1  → prerelease (not marked as Latest)
+  #   v0.2.0-beta.1 → prerelease
+  #   v0.2.0       → stable release (marked as Latest)
   prerelease: auto
   name_template: "Zion Node {{ .Version }}"
   header: |
@@ -73,3 +79,6 @@ changelog:
       - "^test:"
       - "^ci:"
       - "^chore:"
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-next"

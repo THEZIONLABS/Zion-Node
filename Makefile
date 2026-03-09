@@ -47,8 +47,12 @@ fmt-check:
 
 ## clean: Remove build artifacts
 clean:
-	rm -rf $(BUILD_DIR)
+	rm -rf $(BUILD_DIR) dist/
 	rm -rf logs/
+
+## snapshot: Build a local snapshot release (no publish)
+snapshot:
+	goreleaser release --snapshot --clean
 
 ## help: Show this help
 help:
