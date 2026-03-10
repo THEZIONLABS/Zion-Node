@@ -226,9 +226,7 @@ func (m *setupModel) viewChoose(w int) string {
 
   Choose an option:
 `)
-	opt0 := "  [1] Create new wallet"
-	opt1 := "  [2] Import existing wallet (enter private key)"
-
+	var opt0, opt1 string
 	if m.cursor == 0 {
 		opt0 = statusOnline.Render("  > [1] Create new wallet")
 		opt1 = dimStyle.Render("    [2] Import existing wallet")

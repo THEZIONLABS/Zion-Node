@@ -21,8 +21,7 @@ type walletModel struct {
 	loaded         bool
 	errMsg         string
 
-	width  int
-	height int
+	width int
 }
 
 func newWalletModel() walletModel {
@@ -128,5 +127,5 @@ func (m *walletModel) view() string {
 	lines = append(lines, dimStyle.Render("  • It signs heartbeat messages to prove node identity"))
 	lines = append(lines, dimStyle.Render("  • Back up your private key to migrate to another machine"))
 
-	return header + "\n\n" + fmt.Sprintf("%s", lipgloss.JoinVertical(lipgloss.Left, lines...))
+	return header + "\n\n" + lipgloss.JoinVertical(lipgloss.Left, lines...)
 }

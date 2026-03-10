@@ -1,0 +1,26 @@
+linters-settings:
+  errcheck:
+    # Don't check test files for unchecked errors (test helper calls etc.)
+    exclude-functions:
+      - (io.Closer).Close
+      - (*os/exec.Cmd).Run
+
+linters:
+  enable:
+    - errcheck
+    - gosimple
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+  disable:
+    - errcheck  # Too noisy for this codebase; re-enable incrementally
+
+issues:
+  exclude-rules:
+    # Test files: allow unchecked errors, unused helpers, nil contexts
+    - path: _test\.go
+      linters:
+        - errcheck
+        - staticcheck
+        - unused

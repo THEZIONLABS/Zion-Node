@@ -208,7 +208,7 @@ func (d *Daemon) Run(ctx context.Context) error {
 	}
 
 	// Send initial heartbeat immediately to make node visible in dashboard
-	d.sendHeartbeat(ctx)
+	_ = d.sendHeartbeat(ctx)
 
 	// Start container health monitor
 	go d.containerMonitor.Start(ctx)
@@ -327,8 +327,8 @@ func (d *Daemon) sendHeartbeat(ctx context.Context) error {
 	// the Docker daemon with simultaneous container operations.
 	if len(commands) > 0 {
 		sem := make(chan struct{}, maxConcurrentCommands)
-		for _, cmd := range commands {
-			cmd := cmd // capture for goroutine
+		for i := range commands {
+			cmd := commands[i] // capture for goroutine
 			sem <- struct{}{}
 			go func() {
 				defer func() { <-sem }()
@@ -544,7 +544,7 @@ func (d *Daemon) processHubCommand(ctx context.Context, cmd *types.HubCommand) {
 			return
 		}
 		// Report checkpoint completion
-		d.hubClient.ReportCheckpointComplete(cmdCtx, cmd.AgentID, snapshotRef.Ref)
+		_ = d.hubClient.ReportCheckpointComplete(cmdCtx, cmd.AgentID, snapshotRef.Ref)
 
 	case "migrate_out":
 		if cmdCtx.Err() != nil {
@@ -558,14 +558,14 @@ func (d *Daemon) processHubCommand(ctx context.Context, cmd *types.HubCommand) {
 		snapshotRef, err := d.snapshotEngine.Create(cmdCtx, cmd.AgentID, agent.ContainerID)
 		if err != nil {
 			log.WithError(err).Error("Failed to checkpoint agent for migration")
-			d.hubClient.ReportMigrationFailure(cmdCtx, cmd.AgentID, err.Error())
+			_ = d.hubClient.ReportMigrationFailure(cmdCtx, cmd.AgentID, err.Error())
 			return
 		}
 
 		// Wait for Hub confirmation
 		confirmed, err := d.hubClient.WaitForSnapshotConfirmation(cmdCtx, cmd.AgentID, snapshotRef.Ref)
 		if err != nil || !confirmed {
-			d.hubClient.ReportMigrationFailure(cmdCtx, cmd.AgentID, "hub confirmation failed")
+			_ = d.hubClient.ReportMigrationFailure(cmdCtx, cmd.AgentID, "hub confirmation failed")
 			return
 		}
 

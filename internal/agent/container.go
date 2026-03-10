@@ -155,7 +155,7 @@ func (d *DockerManager) Create(ctx context.Context, agentID string, profile type
 	// Check if container with this name already exists
 	// This handles edge cases where previous cleanup failed
 	// Use exact match regex: ^/container-name$ (Docker stores names with leading /)
-	existingContainers, err := d.client.ContainerList(ctx, dockertypes.ContainerListOptions{
+	existingContainers, err := d.client.ContainerList(ctx, container.ListOptions{
 		All: true, // Include stopped containers
 		Filters: filters.NewArgs(
 			filters.Arg("name", "^/"+containerName+"$"),
@@ -177,7 +177,7 @@ func (d *DockerManager) Create(ctx context.Context, agentID string, profile type
 			_ = d.client.ContainerStop(ctx, existing.ID, container.StopOptions{})
 
 			// Remove the container
-			if err := d.client.ContainerRemove(ctx, existing.ID, dockertypes.ContainerRemoveOptions{
+			if err := d.client.ContainerRemove(ctx, existing.ID, container.RemoveOptions{
 				Force: true,
 			}); err != nil {
 				d.logger.WithError(err).WithField("container_id", existing.ID).Error("Failed to remove existing container")
@@ -364,7 +364,7 @@ func (d *DockerManager) Create(ctx context.Context, agentID string, profile type
 
 // Start starts a container
 func (d *DockerManager) Start(ctx context.Context, containerID string) error {
-	return d.client.ContainerStart(ctx, containerID, dockertypes.ContainerStartOptions{})
+	return d.client.ContainerStart(ctx, containerID, container.StartOptions{})
 }
 
 // Stop stops a container
@@ -375,12 +375,12 @@ func (d *DockerManager) Stop(ctx context.Context, containerID string) error {
 
 // Remove removes a container
 func (d *DockerManager) Remove(ctx context.Context, containerID string) error {
-	return d.client.ContainerRemove(ctx, containerID, dockertypes.ContainerRemoveOptions{Force: true})
+	return d.client.ContainerRemove(ctx, containerID, container.RemoveOptions{Force: true})
 }
 
 // List lists containers with prefix
 func (d *DockerManager) List(ctx context.Context, prefix string) ([]dockertypes.Container, error) {
-	return d.client.ContainerList(ctx, dockertypes.ContainerListOptions{
+	return d.client.ContainerList(ctx, container.ListOptions{
 		Filters: filters.NewArgs(filters.Arg("name", prefix)),
 		All:     true,
 	})

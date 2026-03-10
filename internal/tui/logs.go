@@ -52,12 +52,6 @@ func (m *logsModel) setSize(w, h int) {
 func (m *logsModel) refresh() {
 	entries := m.logBuf.Entries(m.filter)
 
-	// Max message width: total width minus time(8) minus level(5) minus module(10) minus spacing(8) minus border(2)
-	maxMsgW := m.width - 35
-	if maxMsgW < 20 {
-		maxMsgW = 20
-	}
-
 	var sb strings.Builder
 	for _, e := range entries {
 		style := logLevelStyle(e.Level)

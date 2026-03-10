@@ -308,5 +308,5 @@ func (m Model) viewTooSmall() string {
 	if topPad < 0 {
 		topPad = 0
 	}
-	return repeat("\n", topPad) + fmt.Sprintf("%s", lipgloss.JoinVertical(lipgloss.Left, lines...))
+	return repeat("\n", topPad) + lipgloss.JoinVertical(lipgloss.Left, lines...)
 }
