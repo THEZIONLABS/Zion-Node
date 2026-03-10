@@ -39,13 +39,22 @@ detect_platform() {
 
 # Get the latest release tag from GitHub API
 get_latest_version() {
+  # Try /releases/latest first (stable releases only), fall back to
+  # /releases (includes pre-releases) if no stable release exists yet.
   local url="https://api.github.com/repos/${REPO}/releases/latest"
+  local fallback_url="https://api.github.com/repos/${REPO}/releases"
   local tag
 
   if command -v curl &>/dev/null; then
-    tag="$(curl -fsSL "$url" | grep '"tag_name"' | head -1 | sed -E 's/.*"tag_name":\s*"([^"]+)".*/\1/')"
+    tag="$(curl -fsSL "$url" 2>/dev/null | grep '"tag_name"' | head -1 | sed -E 's/.*"tag_name":\s*"([^"]+)".*/\1/')"
+    if [ -z "$tag" ]; then
+      tag="$(curl -fsSL "$fallback_url" 2>/dev/null | grep '"tag_name"' | head -1 | sed -E 's/.*"tag_name":\s*"([^"]+)".*/\1/')"
+    fi
   elif command -v wget &>/dev/null; then
-    tag="$(wget -qO- "$url" | grep '"tag_name"' | head -1 | sed -E 's/.*"tag_name":\s*"([^"]+)".*/\1/')"
+    tag="$(wget -qO- "$url" 2>/dev/null | grep '"tag_name"' | head -1 | sed -E 's/.*"tag_name":\s*"([^"]+)".*/\1/')"
+    if [ -z "$tag" ]; then
+      tag="$(wget -qO- "$fallback_url" 2>/dev/null | grep '"tag_name"' | head -1 | sed -E 's/.*"tag_name":\s*"([^"]+)".*/\1/')"
+    fi
   else
     echo "Error: curl or wget is required" >&2
     exit 1
