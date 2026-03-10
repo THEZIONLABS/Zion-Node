@@ -84,7 +84,7 @@ main() {
   url="https://github.com/${REPO}/releases/download/${version}/${archive}"
 
   tmpdir="$(mktemp -d)"
-  trap 'rm -rf "$tmpdir"' EXIT
+  trap 'rm -rf "${tmpdir:-}"' EXIT
 
   echo "==> Downloading ${archive}..."
   if command -v curl &>/dev/null; then
