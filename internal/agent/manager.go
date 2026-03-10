@@ -257,8 +257,8 @@ func (m *Manager) HandleContainerFailure(ctx context.Context, agentID string, re
 
 		// Stop and remove container (best effort, only if containerID is valid)
 		if containerID != "" {
-			m.container.Stop(ctx, containerID)
-			m.container.Remove(ctx, containerID)
+			_ = m.container.Stop(ctx, containerID)
+			_ = m.container.Remove(ctx, containerID)
 		}
 
 		m.mu.Lock()
@@ -285,8 +285,8 @@ func (m *Manager) restartAgent(ctx context.Context, agentID string) {
 	m.mu.Unlock()
 
 	// Stop old container
-	m.container.Stop(ctx, oldContainerID)
-	m.container.Remove(ctx, oldContainerID)
+	_ = m.container.Stop(ctx, oldContainerID)
+	_ = m.container.Remove(ctx, oldContainerID)
 
 	// Create new container (this will generate a new unique ID)
 	containerID, err := m.container.Create(ctx, agentID, profile, "", nil)

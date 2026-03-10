@@ -35,7 +35,7 @@ func TestHeartbeat(t *testing.T) {
 	}
 
 	// Send heartbeat
-	cmd, err := client.SendHeartbeat(ctx, agents, capacity)
+	_, err := client.SendHeartbeat(ctx, agents, capacity)
 	if err != nil {
 		t.Fatalf("Failed to send heartbeat: %v", err)
 	}
@@ -61,7 +61,7 @@ func TestHeartbeat(t *testing.T) {
 	}
 	mockHub.SetCommand("agent-01", hubCmd)
 
-	cmd, err = client.SendHeartbeat(ctx, agents, capacity)
+	cmd, err := client.SendHeartbeat(ctx, agents, capacity)
 	if err != nil {
 		t.Fatalf("Failed to send heartbeat: %v", err)
 	}

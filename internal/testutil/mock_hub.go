@@ -208,7 +208,7 @@ func (m *MockHub) handleHeartbeat(w http.ResponseWriter, r *http.Request) {
 		ServerTime: hb.Timestamp,
 		Commands:   cmds,
 	}
-	json.NewEncoder(w).Encode(resp)
+	_ = json.NewEncoder(w).Encode(resp)
 }
 
 func (m *MockHub) handleEvents(w http.ResponseWriter, r *http.Request) {
@@ -254,7 +254,7 @@ func (m *MockHub) handleUploadSnapshot(w http.ResponseWriter, r *http.Request) {
 	m.mu.Unlock()
 
 	// Return S3 URI
-	json.NewEncoder(w).Encode(map[string]string{
+	_ = json.NewEncoder(w).Encode(map[string]string{
 		"uri": fmt.Sprintf("s3://test-bucket/%s", snapshotRef),
 	})
 }
@@ -277,7 +277,7 @@ func (m *MockHub) handleCheckpoint(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		// Return presigned URL pointing to test endpoint
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
 			"download_url": m.server.URL + "/v1/checkpoints/" + snapshotRef + "/data",
 			"expires_in":   3600,
 		})
@@ -292,7 +292,7 @@ func (m *MockHub) handleCheckpoint(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "snapshot not found", http.StatusNotFound)
 			return
 		}
-		w.Write(data)
+		_, _ = w.Write(data)
 	} else {
 		// GET /v1/checkpoints/{snapshot_ref} - check if snapshot exists
 		m.mu.RLock()
@@ -300,7 +300,7 @@ func (m *MockHub) handleCheckpoint(w http.ResponseWriter, r *http.Request) {
 		m.mu.RUnlock()
 
 		if confirmed {
-			json.NewEncoder(w).Encode(map[string]string{"status": "available"})
+			_ = json.NewEncoder(w).Encode(map[string]string{"status": "available"})
 		} else {
 			w.WriteHeader(http.StatusNotFound)
 		}
@@ -315,10 +315,10 @@ func (m *MockHub) handleSigningKey(w http.ResponseWriter, r *http.Request) {
 	if kp == nil {
 		// No signing key configured — return 503 like the real hub
 		w.WriteHeader(http.StatusServiceUnavailable)
-		json.NewEncoder(w).Encode(map[string]string{"error": "Hub signing key not configured"})
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": "Hub signing key not configured"})
 		return
 	}
-	json.NewEncoder(w).Encode(map[string]string{"public_key": kp.PublicKeyHex})
+	_ = json.NewEncoder(w).Encode(map[string]string{"public_key": kp.PublicKeyHex})
 }
 
 func (m *MockHub) handleHealth(w http.ResponseWriter, r *http.Request) {
@@ -342,12 +342,12 @@ func (m *MockHub) handleRegister(w http.ResponseWriter, r *http.Request) {
 		Status: "online",
 	}
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(resp)
+	_ = json.NewEncoder(w).Encode(resp)
 }
 
 // handleAuthChallenge handles GET /v1/auth/challenge (wallet login)
 func (m *MockHub) handleAuthChallenge(w http.ResponseWriter, r *http.Request) {
-	json.NewEncoder(w).Encode(map[string]string{
+	_ = json.NewEncoder(w).Encode(map[string]string{
 		"challenge": "mock-challenge-" + fmt.Sprintf("%d", time.Now().Unix()),
 		"expires":   "2099-01-01T00:00:00Z",
 	})
@@ -377,7 +377,7 @@ func (m *MockHub) handleRuntimeImages(w http.ResponseWriter, r *http.Request) {
 	images := m.runtimeImages
 	m.mu.RUnlock()
 
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"images": images,
 	})
 }
