@@ -2,11 +2,17 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
+	"os/exec"
 	"os/signal"
+	"path/filepath"
+	"runtime"
+	"strings"
 	"syscall"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -46,6 +52,9 @@ func main() {
 		switch remainingArgs[0] {
 		case "wallet":
 			handleWalletCommand(remainingArgs[1:])
+			return
+		case "update":
+			handleUpdateCommand()
 			return
 		case "help":
 			printHelp()
@@ -198,6 +207,7 @@ func printHelp() {
 	fmt.Println("  zion-node wallet <cmd>           Manage EVM wallet")
 	fmt.Println("  zion-node help                   Show this help")
 	fmt.Println("  zion-node version                Show version")
+	fmt.Println("  zion-node update                 Update to the latest version")
 	fmt.Println()
 	fmt.Println("Flags:")
 	fmt.Println("  --config <path>      Path to config file (default: config.toml)")
@@ -257,6 +267,244 @@ func printWalletHelp() {
 	fmt.Println("  zion-node wallet import <key>     Import from private key")
 	fmt.Println("  zion-node wallet show             Show wallet info")
 	fmt.Println("  zion-node wallet login            Get JWT token from Hub")
+}
+
+const updateRepo = "THEZIONLABS/Zion-Node"
+
+// githubRelease represents a subset of the GitHub release API response.
+type githubRelease struct {
+	TagName string `json:"tag_name"`
+}
+
+func handleUpdateCommand() {
+	// Check if another zion-node process is running (daemon).
+	selfPID := os.Getpid()
+	if isNodeRunning(selfPID) {
+		fmt.Fprintln(os.Stderr, "Error: another zion-node instance is currently running. Stop it before updating.")
+		os.Exit(1)
+	}
+
+	currentVersion := daemon.Version
+	fmt.Printf("Current version: %s\n", currentVersion)
+
+	// Fetch latest release from GitHub
+	fmt.Println("Checking for updates...")
+	latestTag, err := fetchLatestTag()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error fetching latest version: %v\n", err)
+		os.Exit(1)
+	}
+
+	latestNum := strings.TrimPrefix(latestTag, "v")
+	currentNum := strings.TrimPrefix(currentVersion, "v")
+	if latestNum == currentNum {
+		fmt.Printf("Already up to date (%s)\n", latestTag)
+		return
+	}
+
+	fmt.Printf("New version available: %s\n", latestTag)
+
+	// Detect platform
+	platform := runtime.GOOS + "-" + runtime.GOARCH
+	archive := fmt.Sprintf("zion-node-%s-%s.tar.gz", latestNum, platform)
+	downloadURL := fmt.Sprintf("https://github.com/%s/releases/download/%s/%s", updateRepo, latestTag, archive)
+
+	// Download to temp dir
+	tmpDir, err := os.MkdirTemp("", "zion-node-update-*")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error creating temp dir: %v\n", err)
+		os.Exit(1)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	archivePath := filepath.Join(tmpDir, archive)
+	fmt.Printf("Downloading %s...\n", archive)
+	if err := downloadFile(archivePath, downloadURL); err != nil {
+		fmt.Fprintf(os.Stderr, "Download failed: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Extract
+	fmt.Println("Extracting...")
+	cmd := exec.Command("tar", "-xzf", archivePath, "-C", tmpDir)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		fmt.Fprintf(os.Stderr, "Extraction failed: %s\n%v\n", out, err)
+		os.Exit(1)
+	}
+
+	// Find current binary path to replace in-place
+	selfPath, err := os.Executable()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Cannot determine current binary path: %v\n", err)
+		os.Exit(1)
+	}
+	selfPath, err = filepath.EvalSymlinks(selfPath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Cannot resolve binary path: %v\n", err)
+		os.Exit(1)
+	}
+
+	newBinary := filepath.Join(tmpDir, "zion-node")
+	if _, err := os.Stat(newBinary); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: extracted binary not found at %s\n", newBinary)
+		os.Exit(1)
+	}
+
+	// Replace the current binary
+	fmt.Printf("Installing to %s...\n", selfPath)
+	installDir := filepath.Dir(selfPath)
+
+	// Check if we can write directly
+	if err := replaceFile(newBinary, selfPath, installDir); err != nil {
+		fmt.Fprintf(os.Stderr, "Install failed: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Println()
+	fmt.Printf("✓ Updated successfully to %s\n", latestTag)
+}
+
+func fetchLatestTag() (string, error) {
+	urls := []string{
+		fmt.Sprintf("https://api.github.com/repos/%s/releases/latest", updateRepo),
+		fmt.Sprintf("https://api.github.com/repos/%s/releases", updateRepo),
+	}
+
+	client := &http.Client{}
+	for _, u := range urls {
+		req, err := http.NewRequest("GET", u, nil)
+		if err != nil {
+			continue
+		}
+		req.Header.Set("Accept", "application/vnd.github+json")
+
+		resp, err := client.Do(req)
+		if err != nil {
+			continue
+		}
+
+		if resp.StatusCode != http.StatusOK {
+			resp.Body.Close()
+			continue
+		}
+
+		var tag string
+		if strings.HasSuffix(u, "/releases") {
+			var releases []githubRelease
+			if err := json.NewDecoder(resp.Body).Decode(&releases); err == nil && len(releases) > 0 {
+				tag = releases[0].TagName
+			}
+		} else {
+			var release githubRelease
+			if err := json.NewDecoder(resp.Body).Decode(&release); err == nil {
+				tag = release.TagName
+			}
+		}
+		resp.Body.Close()
+
+		if tag != "" {
+			return tag, nil
+		}
+	}
+
+	return "", fmt.Errorf("could not determine latest version from GitHub")
+}
+
+func downloadFile(dest, url string) error {
+	resp, err := http.Get(url) //nolint:gosec // URL is constructed from hardcoded repo constant
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("HTTP %d: %s", resp.StatusCode, url)
+	}
+
+	out, err := os.Create(dest)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+
+	_, err = io.Copy(out, resp.Body)
+	return err
+}
+
+// replaceFile atomically replaces destPath with srcPath.
+// On Linux a running binary cannot be written to, but it can be unlinked and
+// replaced via rename. If direct operations fail (permission denied), it
+// retries with sudo.
+func replaceFile(srcPath, destPath, installDir string) error {
+	// Atomic replace: copy new binary to a temp name in the same directory,
+	// then rename over the old one. rename(2) on the same filesystem is
+	// atomic and works even when the destination is a running executable.
+	tmpDest := destPath + ".new"
+
+	if err := copyFile(srcPath, tmpDest); err == nil {
+		if err := os.Chmod(tmpDest, 0755); err != nil {
+			os.Remove(tmpDest)
+			return err
+		}
+		if err := os.Rename(tmpDest, destPath); err != nil {
+			os.Remove(tmpDest)
+			return err
+		}
+		return nil
+	}
+
+	// Permission denied — try sudo
+	fmt.Println("Elevated permissions required...")
+	cmd := exec.Command("sudo", "cp", srcPath, tmpDest)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("sudo install failed: %w", err)
+	}
+	_ = exec.Command("sudo", "chmod", "+x", tmpDest).Run()
+	mvCmd := exec.Command("sudo", "mv", tmpDest, destPath)
+	mvCmd.Stdin = os.Stdin
+	mvCmd.Stdout = os.Stdout
+	mvCmd.Stderr = os.Stderr
+	return mvCmd.Run()
+}
+
+func copyFile(src, dst string) error {
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+
+	out, err := os.OpenFile(dst, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0755)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+
+	_, err = io.Copy(out, in)
+	return err
+}
+
+// isNodeRunning checks if another zion-node process (not ourselves) is running.
+func isNodeRunning(selfPID int) bool {
+	// Use pgrep to find zion-node processes
+	out, err := exec.Command("pgrep", "-x", "zion-node").Output()
+	if err != nil {
+		return false // pgrep returns error when no match
+	}
+
+	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		if line != fmt.Sprintf("%d", selfPID) {
+			return true
+		}
+	}
+	return false
 }
 
 func runDaemon() {
