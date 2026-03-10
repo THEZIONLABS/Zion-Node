@@ -1,4 +1,4 @@
-# Zion Node — Remote Hub Configuration
+    # Zion Node — Remote Hub Configuration
 # Usage:
 #   1. cp config.example.toml config.toml
 #   2. Edit config.toml with your Hub endpoint and settings

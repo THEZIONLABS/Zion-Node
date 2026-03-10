@@ -89,7 +89,7 @@ func (s *StateSaver) saveLoop() {
 						"max_retries": s.maxRetries,
 						"error":       err,
 					}).Warn("Failed to save state, retrying...")
-					
+
 					// Use context-aware sleep
 					select {
 					case <-s.ctx.Done():

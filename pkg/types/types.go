@@ -111,10 +111,10 @@ type ContainerStatus struct {
 
 // RuntimeInfo represents detailed runtime information
 type RuntimeInfo struct {
-	Engine      string `json:"engine"`                   // e.g., "openclaw"
-	ImageRef    string `json:"image_ref"`                // e.g., "alpine/openclaw:main"
-	ImageDigest string `json:"image_digest,omitempty"`   // e.g., "sha256:abc123..."
-	PulledAt    string `json:"pulled_at,omitempty"`      // ISO 8601 timestamp
+	Engine      string `json:"engine"`                 // e.g., "openclaw"
+	ImageRef    string `json:"image_ref"`              // e.g., "alpine/openclaw:main"
+	ImageDigest string `json:"image_digest,omitempty"` // e.g., "sha256:abc123..."
+	PulledAt    string `json:"pulled_at,omitempty"`    // ISO 8601 timestamp
 }
 
 // NodeRegistration request sent to Hub (POST /v1/nodes)
@@ -127,7 +127,7 @@ type NodeRegistration struct {
 	SystemCPU         int           `json:"system_cpu,omitempty"`
 	SystemMemoryMB    int           `json:"system_memory_mb,omitempty"`
 	TotalSlots        int           `json:"total_slots,omitempty"`
-	BinaryHash        string        `json:"binary_hash,omitempty"`        // SHA-256 of the node binary for attestation
+	BinaryHash        string        `json:"binary_hash,omitempty"` // SHA-256 of the node binary for attestation
 	SupportedRuntimes []RuntimeInfo `json:"supported_runtimes,omitempty"`
 }
 

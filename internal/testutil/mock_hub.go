@@ -21,8 +21,8 @@ type MockHub struct {
 	downloads     map[string][]byte            // snapshotRef -> data
 	confirmations map[string]bool              // snapshotRef -> confirmed
 	failures      []AgentFailure
-	signingKey    *TestSigningKeyPair          // optional: signs commands before returning
-	runtimeImages []RuntimeImageEntry          // runtime image catalog
+	signingKey    *TestSigningKeyPair // optional: signs commands before returning
+	runtimeImages []RuntimeImageEntry // runtime image catalog
 }
 
 // AgentFailure represents a reported agent failure
@@ -337,9 +337,9 @@ func (m *MockHub) handleRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	resp := types.NodeRegistrationResponse{
-		NodeID:    reg.NodeID,
-		Region:    "mock-region",
-		Status:    "online",
+		NodeID: reg.NodeID,
+		Region: "mock-region",
+		Status: "online",
 	}
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(resp)

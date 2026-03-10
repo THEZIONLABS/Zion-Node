@@ -147,7 +147,7 @@ func TestDaemonShutdownViaHeartbeat(t *testing.T) {
 
 	cfg := testutil.NewTestConfig(mockHub.URL())
 	cfg.HubPublicKey = kp.PublicKeyHex // Node verifies signatures
-	cfg.HeartbeatInterval = 1 // 1 second for fast test
+	cfg.HeartbeatInterval = 1          // 1 second for fast test
 	defer testutil.CleanupTestConfig(cfg)
 
 	d, err := NewDaemon(cfg)

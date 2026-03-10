@@ -24,7 +24,7 @@ type Client struct {
 func NewClient(baseURL string, timeout time.Duration) *Client {
 	transport := &http.Transport{
 		MaxIdleConns:          10,
-		MaxIdleConnsPerHost:   10,  // single hub host — match total
+		MaxIdleConnsPerHost:   10, // single hub host — match total
 		IdleConnTimeout:       120 * time.Second,
 		TLSHandshakeTimeout:   5 * time.Second,
 		ResponseHeaderTimeout: 10 * time.Second,

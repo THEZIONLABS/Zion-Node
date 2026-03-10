@@ -119,10 +119,10 @@ func TestLoadFromFileErrors(t *testing.T) {
 	// Test invalid JSON
 	tmpDir, _ := os.MkdirTemp("", "wallet-test-*")
 	defer os.RemoveAll(tmpDir)
-	
+
 	invalidPath := filepath.Join(tmpDir, "invalid.json")
 	os.WriteFile(invalidPath, []byte("invalid json"), 0600)
-	
+
 	_, err = LoadFromFile(invalidPath)
 	if err == nil {
 		t.Error("Expected error for invalid JSON")

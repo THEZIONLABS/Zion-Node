@@ -302,7 +302,7 @@ func TestSignChallenge_EIP191Format(t *testing.T) {
 		t.Error("Signature should have 0x prefix")
 	}
 
-	// Remove 0x and verify it's valid hex of correct length (65 bytes = 130 hex chars) 
+	// Remove 0x and verify it's valid hex of correct length (65 bytes = 130 hex chars)
 	hexStr := sig[2:]
 	if len(hexStr) != 130 {
 		t.Errorf("Expected 130 hex chars (65 bytes), got %d. hex: %s", len(hexStr), hexStr)

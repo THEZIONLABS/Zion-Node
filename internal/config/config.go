@@ -18,7 +18,7 @@ type Config struct {
 
 	// Hub connection
 	HubURL       string `toml:"hub_url"`
-	HubPublicKey string `toml:"-"` // Fetched from hub at startup, not stored in config file
+	HubPublicKey string `toml:"-"`              // Fetched from hub at startup, not stored in config file
 	HubAuthToken string `toml:"hub_auth_token"` // JWT or API key for Hub authentication
 
 	// Capacity

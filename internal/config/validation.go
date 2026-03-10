@@ -8,8 +8,8 @@ import (
 
 	"github.com/docker/docker/client"
 	"github.com/sirupsen/logrus"
-	"golang.org/x/sys/unix"
 	httputil "github.com/zion-protocol/zion-node/internal/http"
+	"golang.org/x/sys/unix"
 )
 
 // validateConfig validates the configuration with comprehensive checks
@@ -94,28 +94,28 @@ func validateDocker(c *Config) error {
 func validateDiskSpace() error {
 	// Check /var/lib/docker or fallback to /
 	paths := []string{"/var/lib/docker", "/"}
-	
+
 	for _, path := range paths {
 		var stat unix.Statfs_t
 		if err := unix.Statfs(path, &stat); err != nil {
 			continue // Try next path
 		}
-		
+
 		// Calculate available space in GB
 		availableBytes := stat.Bavail * uint64(stat.Bsize)
 		availableGB := availableBytes / (1024 * 1024 * 1024)
-		
+
 		// Need at least 5GB for Docker images + agent containers
 		// alpine/openclaw:main image is ~3GB + decompression overhead + container layers
 		const minRequiredGB = 5
-		
+
 		if availableGB < minRequiredGB {
 			return fmt.Errorf("insufficient disk space at %s: %dGB available, need %dGB minimum", path, availableGB, minRequiredGB)
 		}
-		
+
 		return nil // Success
 	}
-	
+
 	return fmt.Errorf("could not check disk space: paths not accessible")
 }
 

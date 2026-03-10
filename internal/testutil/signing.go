@@ -13,8 +13,8 @@ import (
 
 // TestSigningKeyPair holds an ECDSA secp256k1 key pair for testing.
 type TestSigningKeyPair struct {
-	PrivateKey    *ecdsa.PrivateKey
-	PublicKeyHex  string // 65-byte uncompressed, hex-encoded (no 0x prefix)
+	PrivateKey   *ecdsa.PrivateKey
+	PublicKeyHex string // 65-byte uncompressed, hex-encoded (no 0x prefix)
 }
 
 // NewTestSigningKeyPair generates a random secp256k1 key pair suitable for

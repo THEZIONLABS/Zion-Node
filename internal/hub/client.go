@@ -29,7 +29,7 @@ type Client struct {
 	sequence     int64
 	mu           sync.Mutex
 	failureCount int
-	successCount int    // consecutive successes needed to transition back to online
+	successCount int // consecutive successes needed to transition back to online
 	status       string
 }
 
@@ -523,8 +523,8 @@ func (c *Client) FetchRuntimeImage(ctx context.Context) (string, error) {
 
 // MiningBalance holds the ZION mining reward balance for a wallet.
 type MiningBalance struct {
-	Owner      string `json:"owner"`
-	Balance    string `json:"balance"`
+	Owner       string `json:"owner"`
+	Balance     string `json:"balance"`
 	TotalEarned string `json:"total_earned"`
 }
 

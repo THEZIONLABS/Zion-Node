@@ -43,14 +43,14 @@ func (m *Manager) RecoverFromDocker(ctx context.Context) error {
 					"agent_id":     agentID,
 				}).Warn("Found orphaned container, cleaning up")
 			}
-			
+
 			// Try to stop (ignore errors - container might already be stopped)
 			if err := m.container.Stop(ctx, containerID); err != nil {
 				if m.logger != nil {
 					m.logger.WithError(err).WithField("container_id", containerID).Debug("Stop failed (container may already be stopped)")
 				}
 			}
-			
+
 			// Force remove the container (must succeed)
 			if err := m.container.Remove(ctx, containerID); err != nil {
 				if m.logger != nil {
@@ -90,7 +90,7 @@ func (m *Manager) RecoverFromDocker(ctx context.Context) error {
 func extractAgentID(containerName string) string {
 	// Docker API returns names with leading "/"
 	containerName = strings.TrimPrefix(containerName, "/")
-	
+
 	prefix := "zion-agent-"
 	if strings.HasPrefix(containerName, prefix) {
 		return strings.TrimPrefix(containerName, prefix)
