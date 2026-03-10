@@ -324,9 +324,11 @@ func runDaemonWithTUI() {
 	// All output goes through the TUI log buffer hook.
 	log.SetOutput(io.Discard)
 
-	// Validate configuration
+	// In TUI mode, logrus output is discarded (bubbletea owns stdout).
+	// Fatal errors before TUI starts would be invisible, so print to stderr.
 	if err := cfg.ValidateWithLogger(log); err != nil {
-		log.WithError(err).Fatal("Config validation failed")
+		fmt.Fprintf(os.Stderr, "Config validation failed: %v\n", err)
+		os.Exit(1)
 	}
 
 	// Determine if wallet setup wizard is needed
