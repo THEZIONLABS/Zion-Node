@@ -164,8 +164,8 @@ func TestDaemonShutdownViaHeartbeat(t *testing.T) {
 		daemonErr <- d.Run(ctx)
 	}()
 
-	// Wait for daemon to start and send initial heartbeat
-	time.Sleep(500 * time.Millisecond)
+	// Wait for daemon to start (image pull may take time in CI)
+	time.Sleep(3 * time.Second)
 
 	// Queue a shutdown command — MockHub will sign it before returning on next heartbeat
 	mockHub.SetCommand("__shutdown__", &types.HubCommand{
@@ -181,7 +181,7 @@ func TestDaemonShutdownViaHeartbeat(t *testing.T) {
 			t.Errorf("Unexpected daemon error: %v", err)
 		}
 		// Success — daemon exited
-	case <-time.After(10 * time.Second):
+	case <-time.After(60 * time.Second):
 		cancel() // clean up
 		t.Error("Daemon did not shut down after receiving shutdown command via heartbeat")
 	}
