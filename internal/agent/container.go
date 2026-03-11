@@ -276,19 +276,17 @@ func (d *DockerManager) Create(ctx context.Context, agentID string, profile type
 				ch["dmPolicy"] = "open"
 				ch["allowFrom"] = []interface{}{"*"}
 
-				// Feishu plugin needs accounts config with appId/appSecret
-				// in openclaw.json — env vars alone are not enough.
+				// Feishu requires appId/appSecret directly on the channel config,
+				// plus connectionMode and domain for WebSocket setup.
 				if p == "feishu" {
 					appId := extraEnv["FEISHU_APP_ID"]
 					appSecret := extraEnv["FEISHU_APP_SECRET"]
 					if appId != "" && appSecret != "" {
-						ch["accounts"] = map[string]interface{}{
-							"default": map[string]interface{}{
-								"appId":     appId,
-								"appSecret": appSecret,
-							},
-						}
-						ch["defaultAccount"] = "default"
+						ch["appId"] = appId
+						ch["appSecret"] = appSecret
+						ch["connectionMode"] = "websocket"
+						ch["domain"] = "feishu"
+						ch["groupPolicy"] = "open"
 					}
 				}
 
