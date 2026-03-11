@@ -736,6 +736,13 @@ func (d *Daemon) buildAgentEnv(params map[string]interface{}) map[string]string 
 		}
 	}
 
+	// Automations config → JSON env var for container.go to write cron/jobs.json
+	if automations, ok := params["automations"]; ok && automations != nil {
+		if data, err := json.Marshal(automations); err == nil {
+			env["ZION_AUTOMATIONS_CONFIG"] = string(data)
+		}
+	}
+
 	return env
 }
 

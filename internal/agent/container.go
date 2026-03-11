@@ -303,6 +303,46 @@ func (d *DockerManager) Create(ctx context.Context, agentID string, profile type
 		}
 	}
 
+	// Automations → cron/jobs.json for OpenClaw scheduler
+	if automationsJSON, ok := extraEnv["ZION_AUTOMATIONS_CONFIG"]; ok && automationsJSON != "" {
+		var automations []map[string]interface{}
+		if err := json.Unmarshal([]byte(automationsJSON), &automations); err == nil && len(automations) > 0 {
+			cronDir := fmt.Sprintf("%s/.openclaw/cron", dataDir)
+			if err := os.MkdirAll(cronDir, 0755); err != nil {
+				d.logger.WithError(err).Warn("Failed to create cron dir")
+			} else {
+				var cronJobs []map[string]interface{}
+				for _, a := range automations {
+					id, _ := a["id"].(string)
+					cron, _ := a["cron"].(string)
+					message, _ := a["message"].(string)
+					if id == "" || cron == "" || message == "" {
+						continue
+					}
+					cronJobs = append(cronJobs, map[string]interface{}{
+						"id":            fmt.Sprintf("zion-%s", id),
+						"name":          "Zion Automation",
+						"schedule":      map[string]interface{}{"kind": "cron", "expr": cron},
+						"sessionTarget": "isolated",
+						"payload":       map[string]interface{}{"kind": "agentTurn", "message": message},
+						"enabled":       true,
+					})
+				}
+				if len(cronJobs) > 0 {
+					if data, err := json.MarshalIndent(cronJobs, "", "  "); err == nil {
+						jobsFile := fmt.Sprintf("%s/jobs.json", cronDir)
+						if err := os.WriteFile(jobsFile, data, 0644); err != nil {
+							d.logger.WithError(err).Warn("Failed to write cron/jobs.json")
+						}
+						_ = os.Chown(cronDir, 1000, 1000)
+						_ = os.Chown(jobsFile, 1000, 1000)
+					}
+				}
+			}
+		}
+		delete(extraEnv, "ZION_AUTOMATIONS_CONFIG")
+	}
+
 	// Container configuration
 	containerConfig := &container.Config{
 		Image: d.cfg.RuntimeImage,
