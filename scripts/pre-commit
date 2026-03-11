@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# pre-commit hook: scan staged changes for secrets & PII with gitleaks
+# Install: cp scripts/pre-commit .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit
+#   or:   cd .git/hooks && ln -sf ../../scripts/pre-commit pre-commit
+
+set -euo pipefail
+
+# Find gitleaks binary
+if command -v gitleaks &>/dev/null; then
+  GL=gitleaks
+elif [[ -x "$HOME/.local/bin/gitleaks" ]]; then
+  GL="$HOME/.local/bin/gitleaks"
+else
+  echo "⚠️  gitleaks not found — skipping pre-commit scan"
+  echo "   Install: https://github.com/gitleaks/gitleaks#installing"
+  exit 0
+fi
+
+echo "🔍 Scanning staged changes for secrets..."
+$GL protect --staged --verbose --exit-code 1
+
+if [[ $? -ne 0 ]]; then
+  echo ""
+  echo "❌ gitleaks found sensitive content in staged files."
+  echo "   Fix the issues above before committing."
+  echo "   To skip (emergency only): git commit --no-verify"
+  exit 1
+fi

@@ -1,0 +1,6 @@
+# Gitleaks false-positive suppressions
+# Add fingerprints from gitleaks output here, one per line.
+# Format: commit:path:rule-id:line
+cee07a9af18214719fc6e87de5f282a3b49cd332:internal/crypto/wallet_test.go:generic-api-key:28
+cee07a9af18214719fc6e87de5f282a3b49cd332:internal/crypto/wallet_test.go:generic-api-key:93
+86463f18032fe635b842d3b4d5fe4d98c7fa3dfa:docs/TUI_DESIGN.md:generic-api-key:84
