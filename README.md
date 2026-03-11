@@ -64,8 +64,6 @@ This will authenticate with your wallet, create an agent, and automatically run 
 
 ## Configuration
 
-See [docs/CONFIG.md](docs/CONFIG.md) for detailed configuration options.
-
 Key settings:
 - **Hub Connection**: `hub_url` (signing key is auto-fetched at startup)
 - **Capacity**: `max_agents`, `cpu_per_agent`, `memory_per_agent`
@@ -85,8 +83,6 @@ zion-node wallet show
 zion-node wallet export
 ```
 
-See [docs/WALLET_README.md](docs/WALLET_README.md) for more details.
-
 ## Local Development
 
 For local development with a local Hub instance:
@@ -100,8 +96,6 @@ cp config.local.toml config.toml
 # Run the node
 zion-node --config config.toml
 ```
-
-See [docs/QUICKSTART.md](docs/QUICKSTART.md) for detailed local development setup.
 
 ## Requirements
 
@@ -159,15 +153,6 @@ Node participates in Hub's anti-cheat verification:
 - **Binary Attestation** — On registration, Node computes SHA-256 of its own binary and reports `binary_hash` to Hub for integrity verification
 - **Agent Probe Response** — When Hub sends a `probe` command via heartbeat, Node verifies the target agent container is actually running (via `agentManager.GetAgent()`), then responds with the challenge nonce through a `probe_response` event
 - **Capacity Reporting** — Node reports `system_cpu` and `system_memory_mb` at registration; Hub uses these to cap `total_slots` server-side
-
-See Hub's [anti-cheat documentation](../hub/docs/anti-cheat.md) for the complete security architecture.
-
-## Documentation
-
-- **[QUICKSTART.md](docs/QUICKSTART.md)** — Local development setup
-- **[CONFIG.md](docs/CONFIG.md)** — Configuration reference
-- **[WALLET_README.md](docs/WALLET_README.md)** — Wallet management
-- **[E2E_TEST_README.md](docs/E2E_TEST_README.md)** — Testing guide
 
 ## Monitoring
 

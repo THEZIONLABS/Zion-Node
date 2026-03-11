@@ -25,7 +25,6 @@ type Agent struct {
 }
 
 // RuntimeProfile defines OpenClaw runtime configuration
-// See: docs/specs/core-objects.md
 type RuntimeProfile struct {
 	Engine             string `json:"engine"`               // "openclaw"
 	EngineVersion      string `json:"engine_version"`       // e.g., "1.2.3"
@@ -35,7 +34,6 @@ type RuntimeProfile struct {
 }
 
 // SnapshotRef is a content-addressed snapshot reference
-// See: docs/specs/core-objects.md
 type SnapshotRef struct {
 	Ref       string    `json:"snapshot_ref"` // sha256:abc123...
 	URI       string    `json:"uri"`          // s3://bucket/path
