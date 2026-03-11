@@ -672,10 +672,12 @@ func (d *Daemon) buildAgentEnv(params map[string]interface{}) map[string]string 
 	}
 
 	// Model config (provider/model format for openclaw)
-	// For openrouter, the model already contains the full path (e.g. google/gemma-3-27b-it:free)
+	// OpenClaw parses model refs by splitting on the first "/", so OpenRouter models
+	// like "qwen/qwen3-235b-a22b-2507" need the "openrouter/" prefix to avoid being
+	// routed to a wrong provider (e.g. qwen-portal).
 	if llmModel != "" {
 		if strings.ToLower(llmProvider) == "openrouter" {
-			env["OPENCLAW_DEFAULT_MODEL"] = llmModel
+			env["OPENCLAW_DEFAULT_MODEL"] = "openrouter/" + llmModel
 		} else if llmProvider != "" {
 			env["OPENCLAW_DEFAULT_MODEL"] = llmProvider + "/" + llmModel
 		}
