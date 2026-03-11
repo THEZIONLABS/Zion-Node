@@ -23,6 +23,9 @@ func (c *Config) SetDefaults() {
 	if c.MemoryPerAgent == 0 {
 		c.MemoryPerAgent = 1024
 	}
+	if c.MemoryPerAgent < 1024 {
+		c.MemoryPerAgent = 1024
+	}
 	if c.StoragePerAgent == 0 {
 		c.StoragePerAgent = 10240
 	}

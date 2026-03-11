@@ -58,8 +58,8 @@ func validateRequiredFields(c *Config) error {
 
 // validateResourceLimits validates resource limits are reasonable
 func validateResourceLimits(c *Config) error {
-	if c.MemoryPerAgent < 128 {
-		return fmt.Errorf("memory_per_agent must be at least 128 MB, got %d", c.MemoryPerAgent)
+	if c.MemoryPerAgent < 1024 {
+		return fmt.Errorf("memory_per_agent must be at least 1024 MB, got %d", c.MemoryPerAgent)
 	}
 	if c.CPUPerAgent < 1 {
 		return fmt.Errorf("cpu_per_agent must be at least 1, got %d", c.CPUPerAgent)

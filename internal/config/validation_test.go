@@ -29,13 +29,13 @@ func TestValidateRequiredFields(t *testing.T) {
 // TestValidateResourceLimits tests resource limits validation
 func TestValidateResourceLimits(t *testing.T) {
 	cfg := &Config{
-		MemoryPerAgent: 127,
+		MemoryPerAgent: 1023,
 	}
 	if err := validateResourceLimits(cfg); err == nil {
-		t.Error("Expected error for memory < 128")
+		t.Error("Expected error for memory < 1024")
 	}
 
-	cfg.MemoryPerAgent = 512
+	cfg.MemoryPerAgent = 1024
 	cfg.CPUPerAgent = 0
 	if err := validateResourceLimits(cfg); err == nil {
 		t.Error("Expected error for cpu < 1")
@@ -107,47 +107,47 @@ func TestValidateResourceLimits_ExtremeValues(t *testing.T) {
 		},
 		{
 			name:      "zero cpu",
-			cfg:       Config{MemoryPerAgent: 512, CPUPerAgent: 0, MaxAgents: 1, StoragePerAgent: 100},
+			cfg:       Config{MemoryPerAgent: 1024, CPUPerAgent: 0, MaxAgents: 1, StoragePerAgent: 100},
 			wantErr:   true,
 			errSubstr: "cpu_per_agent",
 		},
 		{
 			name:      "negative cpu",
-			cfg:       Config{MemoryPerAgent: 512, CPUPerAgent: -1, MaxAgents: 1, StoragePerAgent: 100},
+			cfg:       Config{MemoryPerAgent: 1024, CPUPerAgent: -1, MaxAgents: 1, StoragePerAgent: 100},
 			wantErr:   true,
 			errSubstr: "cpu_per_agent",
 		},
 		{
 			name:      "zero max_agents",
-			cfg:       Config{MemoryPerAgent: 512, CPUPerAgent: 1, MaxAgents: 0, StoragePerAgent: 100},
+			cfg:       Config{MemoryPerAgent: 1024, CPUPerAgent: 1, MaxAgents: 0, StoragePerAgent: 100},
 			wantErr:   true,
 			errSubstr: "max_agents",
 		},
 		{
 			name:      "zero storage",
-			cfg:       Config{MemoryPerAgent: 512, CPUPerAgent: 1, MaxAgents: 1, StoragePerAgent: 0},
+			cfg:       Config{MemoryPerAgent: 1024, CPUPerAgent: 1, MaxAgents: 1, StoragePerAgent: 0},
 			wantErr:   true,
 			errSubstr: "storage_per_agent",
 		},
 		{
 			name:    "very large max_agents",
-			cfg:     Config{MemoryPerAgent: 512, CPUPerAgent: 1, MaxAgents: 100000, StoragePerAgent: 1024},
+			cfg:     Config{MemoryPerAgent: 1024, CPUPerAgent: 1, MaxAgents: 100000, StoragePerAgent: 1024},
 			wantErr: false, // Validation passes, actual capping happens in CapMaxAgentsBySystemResources
 		},
 		{
 			name:    "boundary - exactly minimum memory",
-			cfg:     Config{MemoryPerAgent: 128, CPUPerAgent: 1, MaxAgents: 1, StoragePerAgent: 100},
+			cfg:     Config{MemoryPerAgent: 1024, CPUPerAgent: 1, MaxAgents: 1, StoragePerAgent: 100},
 			wantErr: false,
 		},
 		{
 			name:      "boundary - one below minimum memory",
-			cfg:       Config{MemoryPerAgent: 127, CPUPerAgent: 1, MaxAgents: 1, StoragePerAgent: 100},
+			cfg:       Config{MemoryPerAgent: 1023, CPUPerAgent: 1, MaxAgents: 1, StoragePerAgent: 100},
 			wantErr:   true,
-			errSubstr: "128",
+			errSubstr: "1024",
 		},
 		{
 			name:      "boundary - one below minimum storage",
-			cfg:       Config{MemoryPerAgent: 512, CPUPerAgent: 1, MaxAgents: 1, StoragePerAgent: 99},
+			cfg:       Config{MemoryPerAgent: 1024, CPUPerAgent: 1, MaxAgents: 1, StoragePerAgent: 99},
 			wantErr:   true,
 			errSubstr: "100",
 		},

@@ -13,7 +13,7 @@ hub_url = "https://hub.zion.space"
 # Capacity
 max_agents = 10
 cpu_per_agent = 1
-memory_per_agent = 512  # MB
+memory_per_agent = 1024  # MB
 storage_per_agent = 10240  # MB
 
 # Storage
