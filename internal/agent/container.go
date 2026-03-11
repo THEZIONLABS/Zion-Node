@@ -239,6 +239,7 @@ func (d *DockerManager) Create(ctx context.Context, agentID string, profile type
 			"TELEGRAM_BOT_TOKEN": "telegram",
 			"DISCORD_BOT_TOKEN":  "discord",
 			"SLACK_BOT_TOKEN":    "slack",
+			"FEISHU_APP_ID":      "feishu",
 		}
 		var channelPlugins []string
 		for envKey, pluginID := range envToPlugin {
