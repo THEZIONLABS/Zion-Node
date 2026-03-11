@@ -188,6 +188,7 @@ func (d *Daemon) Run(ctx context.Context) error {
 	}
 
 	// Register node with Hub (attempt registration, ignore if already registered)
+	d.hubClient.SetVersion(Version)
 	registered, err := d.hubClient.Register(ctx, runtimeInfo)
 	if err != nil {
 		var occupied *errors.ErrNodeIDOccupied

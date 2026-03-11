@@ -26,6 +26,7 @@ type Client struct {
 	httpClient   *httputil.Client
 	hubURL       string
 	nodeID       string
+	version      string
 	sequence     int64
 	mu           sync.Mutex
 	failureCount int
@@ -58,6 +59,11 @@ func NewClient(cfg *config.Config) *Client {
 	}
 }
 
+// SetVersion sets the node binary version to report during registration.
+func (c *Client) SetVersion(v string) {
+	c.version = v
+}
+
 // Register registers node with Hub (POST /v1/nodes)
 // Returns true if registration successful, false if already registered
 func (c *Client) Register(ctx context.Context, runtimeInfo types.RuntimeInfo) (bool, error) {
@@ -84,6 +90,7 @@ func (c *Client) Register(ctx context.Context, runtimeInfo types.RuntimeInfo) (b
 		SystemMemoryMB:    c.cfg.SystemMemoryMB,
 		TotalSlots:        c.cfg.MaxAgents,
 		BinaryHash:        selfBinaryHash(),
+		NodeVersion:       c.version,
 		SupportedRuntimes: []types.RuntimeInfo{runtimeInfo},
 	}
 

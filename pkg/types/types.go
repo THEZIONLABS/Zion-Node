@@ -127,7 +127,8 @@ type NodeRegistration struct {
 	SystemCPU         int           `json:"system_cpu,omitempty"`
 	SystemMemoryMB    int           `json:"system_memory_mb,omitempty"`
 	TotalSlots        int           `json:"total_slots,omitempty"`
-	BinaryHash        string        `json:"binary_hash,omitempty"` // SHA-256 of the node binary for attestation
+	BinaryHash        string        `json:"binary_hash,omitempty"`
+	NodeVersion       string        `json:"node_version,omitempty"`
 	SupportedRuntimes []RuntimeInfo `json:"supported_runtimes,omitempty"`
 }
 
