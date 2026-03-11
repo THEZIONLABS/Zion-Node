@@ -37,6 +37,7 @@ release:
   github:
     owner: THEZIONLABS
     name: Zion-Node
+  mode: replace
   draft: false
   # Tags with -rc, -beta, -alpha are automatically marked as prerelease.
   # Stable tags (e.g. v0.1.0) are marked as latest.
