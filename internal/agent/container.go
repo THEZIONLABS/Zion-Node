@@ -28,6 +28,7 @@ type ContainerManager interface {
 	Remove(ctx context.Context, containerID string) error
 	List(ctx context.Context, prefix string) ([]dockertypes.Container, error)
 	Inspect(ctx context.Context, containerID string) (*types.ContainerStatus, error)
+	Logs(ctx context.Context, containerID string, tailLines int) (string, error)
 	Stats(ctx context.Context, containerID string) (*types.ContainerStats, error)
 	EnsureImage(ctx context.Context) error
 	GetImageDigest(ctx context.Context) (string, error)
@@ -458,6 +459,40 @@ func (d *DockerManager) Inspect(ctx context.Context, containerID string) (*types
 		status.Error = info.State.Error
 	}
 	return status, nil
+}
+
+// Logs retrieves the last N lines of stdout/stderr from a container.
+func (d *DockerManager) Logs(ctx context.Context, containerID string, tailLines int) (string, error) {
+	opts := container.LogsOptions{
+		ShowStdout: true,
+		ShowStderr: true,
+		Tail:       fmt.Sprintf("%d", tailLines),
+	}
+	reader, err := d.client.ContainerLogs(ctx, containerID, opts)
+	if err != nil {
+		return "", err
+	}
+	defer reader.Close()
+	out, err := io.ReadAll(reader)
+	if err != nil {
+		return "", err
+	}
+	// Docker multiplexed stream has 8-byte headers per frame; strip them.
+	var cleaned []byte
+	raw := out
+	for len(raw) >= 8 {
+		size := int(raw[4])<<24 | int(raw[5])<<16 | int(raw[6])<<8 | int(raw[7])
+		raw = raw[8:]
+		if size > len(raw) {
+			size = len(raw)
+		}
+		cleaned = append(cleaned, raw[:size]...)
+		raw = raw[size:]
+	}
+	if len(cleaned) == 0 {
+		return string(out), nil
+	}
+	return strings.TrimSpace(string(cleaned)), nil
 }
 
 // Stats gets container statistics

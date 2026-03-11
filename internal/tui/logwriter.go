@@ -69,9 +69,6 @@ func (b *LogBuffer) Fire(entry *logrus.Entry) error {
 				continue
 			}
 			s := fmt.Sprintf("%v", v)
-			if len(s) > 40 {
-				s = s[:37] + "..."
-			}
 			parts = append(parts, fmt.Sprintf("%s=%s", k, s))
 		}
 		if len(parts) > 0 {

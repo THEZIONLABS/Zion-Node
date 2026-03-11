@@ -57,7 +57,7 @@ func (c *Config) SetDefaults() {
 		c.SnapshotRetentionDays = 3
 	}
 	if c.LogDir == "" {
-		c.LogDir = "./logs"
+		c.LogDir = filepath.Join(c.WalletDir, "logs")
 	}
 	if c.LogLevel == "" {
 		c.LogLevel = "info"

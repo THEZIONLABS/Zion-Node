@@ -244,6 +244,16 @@ func (m *MockContainerManager) Inspect(ctx context.Context, containerID string) 
 	}, nil
 }
 
+// Logs implements ContainerManager
+func (m *MockContainerManager) Logs(ctx context.Context, containerID string, tailLines int) (string, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	if _, exists := m.containers[containerID]; !exists {
+		return "", ErrContainerNotFound
+	}
+	return "", nil
+}
+
 // Stats implements ContainerManager
 func (m *MockContainerManager) Stats(ctx context.Context, containerID string) (*types.ContainerStats, error) {
 	m.mu.RLock()

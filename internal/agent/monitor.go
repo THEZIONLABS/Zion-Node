@@ -111,13 +111,27 @@ func (cm *ContainerMonitor) checkAll(ctx context.Context) {
 				reason = fmt.Sprintf("%s: %s", reason, status.Error)
 			}
 
-			cm.logger.WithFields(logrus.Fields{
+			// Retrieve container logs before removal for diagnostics
+			containerLogs := ""
+			if logs, err := cm.manager.container.Logs(ctx, snap.containerID, 50); err == nil && logs != "" {
+				containerLogs = logs
+			}
+
+			fields := logrus.Fields{
 				"agent_id":     snap.agentID,
 				"container_id": snap.containerID,
 				"exit_code":    status.ExitCode,
 				"oom_killed":   status.OOMKilled,
 				"finished_at":  status.FinishedAt,
-			}).Warn("Detected dead container, triggering failure handler")
+			}
+			cm.logger.WithFields(fields).Warn("Detected dead container, triggering failure handler")
+
+			if containerLogs != "" {
+				cm.logger.WithFields(logrus.Fields{
+					"agent_id": snap.agentID,
+				}).Errorf("Container logs:\n%s", containerLogs)
+				reason = fmt.Sprintf("%s | container_logs: %s", reason, containerLogs)
+			}
 
 			cm.manager.HandleContainerFailure(ctx, snap.agentID, reason)
 		}

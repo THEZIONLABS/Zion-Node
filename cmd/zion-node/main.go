@@ -518,6 +518,15 @@ func runDaemon() {
 	// Re-initialize logger with config level
 	log = logger.NewLogrusLogger(cfg.LogLevel)
 
+	// Setup file logging
+	logCloser, err := logger.SetupFileLogging(log, cfg.LogDir)
+	if err != nil {
+		log.WithError(err).Warn("Failed to setup file logging")
+	} else {
+		defer logCloser.Close()
+		log.WithField("log_dir", cfg.LogDir).Info("File logging enabled")
+	}
+
 	// Validate configuration
 	if err := cfg.ValidateWithLogger(log); err != nil {
 		log.WithError(err).Fatal("Config validation failed")
@@ -563,6 +572,14 @@ func runDaemonWithTUI() {
 
 	// Re-initialize logger with config level
 	log = logger.NewLogrusLogger(cfg.LogLevel)
+
+	// Setup file logging
+	logCloser, err := logger.SetupFileLogging(log, cfg.LogDir)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: failed to setup file logging: %v\n", err)
+	} else {
+		defer logCloser.Close()
+	}
 
 	// Attach log buffer hook — TUI reads from this
 	logBuf := tui.NewLogBuffer(500)

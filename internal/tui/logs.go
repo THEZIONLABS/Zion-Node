@@ -61,17 +61,7 @@ func (m *logsModel) refresh() {
 		if e.Module != "" {
 			line += dimStyle.Render(fmt.Sprintf("%-10s ", e.Module))
 		}
-		msg := e.Message
-		// Calculate remaining space after prefix
-		prefixW := lipgloss.Width(line)
-		msgMaxW := m.width - prefixW - 2
-		if msgMaxW < 10 {
-			msgMaxW = 10
-		}
-		if len(msg) > msgMaxW {
-			msg = msg[:msgMaxW-1] + "…"
-		}
-		line += msg
+		line += e.Message
 		sb.WriteString(line)
 		sb.WriteByte('\n')
 	}
