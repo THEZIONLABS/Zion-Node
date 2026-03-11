@@ -26,3 +26,18 @@ if [[ $? -ne 0 ]]; then
   echo "   To skip (emergency only): git commit --no-verify"
   exit 1
 fi
+
+# Check Go formatting on staged .go files
+STAGED_GO=$(git diff --cached --name-only --diff-filter=ACM -- '*.go')
+if [[ -n "$STAGED_GO" ]]; then
+  UNFORMATTED=$(echo "$STAGED_GO" | xargs gofmt -l 2>/dev/null)
+  if [[ -n "$UNFORMATTED" ]]; then
+    echo ""
+    echo "❌ Go files need formatting:"
+    echo "$UNFORMATTED"
+    echo ""
+    echo "   Run: gofmt -w $UNFORMATTED"
+    echo "   To skip (emergency only): git commit --no-verify"
+    exit 1
+  fi
+fi
