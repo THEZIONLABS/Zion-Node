@@ -598,8 +598,16 @@ func runDaemonWithTUI() {
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
-	// Start daemon in background goroutine
+	// Start daemon in background goroutine.
+	// If wallet setup is needed, wait until it completes before starting.
+	setupDone := make(chan struct{})
+	if !needsSetup {
+		close(setupDone) // no setup needed, start immediately
+	}
 	go func() {
+		<-setupDone
+		// Reload wallet into config now that it exists
+		cfg.ReloadWallet()
 		if runErr := d.Run(ctx); runErr != nil {
 			log.WithError(runErr).Error("Daemon failed")
 			cancel()
@@ -607,7 +615,7 @@ func runDaemonWithTUI() {
 	}()
 
 	// Build TUI model
-	model := tui.NewModel(d, logBuf, needsSetup)
+	model := tui.NewModel(d, logBuf, needsSetup, setupDone)
 
 	// Run bubbletea program
 	p := tea.NewProgram(model, tea.WithAltScreen())

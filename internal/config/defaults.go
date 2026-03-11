@@ -71,6 +71,12 @@ func (c *Config) SetDefaults() {
 	}
 }
 
+// ReloadWallet reloads the operator address from the wallet file.
+// Called after wallet creation in the TUI setup wizard.
+func (c *Config) ReloadWallet() {
+	c.OperatorAddress = c.loadWalletAddress()
+}
+
 // loadWalletAddress loads operator address from wallet file.
 // It uses WalletDir if already set on the config, otherwise falls back to $HOME/.zion-node.
 func (c *Config) loadWalletAddress() string {

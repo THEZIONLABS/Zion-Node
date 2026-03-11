@@ -53,6 +53,7 @@ type Model struct {
 	// UI state
 	activeTab   tab
 	showSetup   bool
+	setupDoneCh chan struct{} // closed when wallet setup completes, unblocking daemon start
 	confirmQuit bool
 	width       int
 	height      int
@@ -61,16 +62,18 @@ type Model struct {
 
 // NewModel creates the initial TUI model.
 // If needsSetup is true the wallet wizard is shown first.
-func NewModel(d *daemon.Daemon, logBuf *LogBuffer, needsSetup bool) Model {
+// setupDone is closed when wallet setup completes, signaling the daemon to start.
+func NewModel(d *daemon.Daemon, logBuf *LogBuffer, needsSetup bool, setupDone chan struct{}) Model {
 	return Model{
-		daemon:    d,
-		logBuf:    logBuf,
-		setup:     newSetupModel(d.Config().WalletDir),
-		logs:      newLogsModel(logBuf),
-		wallet:    newWalletModel(),
-		reward:    newRewardModel(d),
-		activeTab: tabDashboard,
-		showSetup: needsSetup,
+		daemon:      d,
+		logBuf:      logBuf,
+		setup:       newSetupModel(d.Config().WalletDir),
+		logs:        newLogsModel(logBuf),
+		wallet:      newWalletModel(),
+		reward:      newRewardModel(d),
+		activeTab:   tabDashboard,
+		showSetup:   needsSetup,
+		setupDoneCh: setupDone,
 	}
 }
 
@@ -134,10 +137,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case setupDoneMsg:
 		m.showSetup = false
-		// Immediately pull status now that daemon should be starting.
-		if m.daemon != nil {
-			m.status = m.daemon.Status()
+		// Signal daemon to start now that wallet is ready
+		if m.setupDoneCh != nil {
+			close(m.setupDoneCh)
+			m.setupDoneCh = nil
 		}
+		// Reload wallet into wallet tab
+		m.wallet.loaded = false
 		return m, nil
 	}
 
