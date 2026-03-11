@@ -279,8 +279,8 @@ func (d *DockerManager) Create(ctx context.Context, agentID string, profile type
 				// Feishu plugin needs accounts config with appId/appSecret
 				// in openclaw.json — env vars alone are not enough.
 				if p == "feishu" {
-					appId, _ := extraEnv["FEISHU_APP_ID"]
-					appSecret, _ := extraEnv["FEISHU_APP_SECRET"]
+					appId := extraEnv["FEISHU_APP_ID"]
+					appSecret := extraEnv["FEISHU_APP_SECRET"]
 					if appId != "" && appSecret != "" {
 						ch["accounts"] = map[string]interface{}{
 							"default": map[string]interface{}{
