@@ -2,7 +2,7 @@
 # Auto-downloaded by install.sh to ~/.zion-node/config.toml
 
 # Node identity (auto-generated on first run if empty)
-node_id = "node-eab39176279e"
+node_id = ""
 # operator_address will be auto-loaded from wallet (~/.zion-node/wallet.json)
 
 # Hub connection
