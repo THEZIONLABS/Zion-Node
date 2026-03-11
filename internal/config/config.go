@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 
 	"github.com/pelletier/go-toml/v2"
 	"github.com/shirou/gopsutil/v3/mem"
@@ -104,8 +105,16 @@ func Load(configFile ...string) (*Config, error) {
 		return nil, fmt.Errorf("failed to parse config: %w", err)
 	}
 
+	// Remember if node_id was empty before defaults (for writeback)
+	nodeIDWasEmpty := cfg.NodeID == ""
+
 	// Set defaults
 	cfg.SetDefaults()
+
+	// If node_id was auto-generated, persist it to config file
+	if nodeIDWasEmpty && cfg.NodeID != "" {
+		cfg.persistNodeID(configPath, data)
+	}
 
 	// Apply environment variable overrides
 	// Priority: ENV > .env > config.toml > defaults
@@ -126,6 +135,16 @@ func Load(configFile ...string) (*Config, error) {
 	}
 
 	return &cfg, nil
+}
+
+// persistNodeID writes the auto-generated node_id back to the config file.
+func (c *Config) persistNodeID(configPath string, originalData []byte) {
+	content := string(originalData)
+	updated := strings.Replace(content, `node_id = ""`, fmt.Sprintf(`node_id = "%s"`, c.NodeID), 1)
+	if updated == content {
+		return // no replacement made, skip write
+	}
+	_ = os.WriteFile(configPath, []byte(updated), 0644)
 }
 
 // detectSystemResources populates SystemCPU and SystemMemoryMB from actual hardware.

@@ -104,14 +104,32 @@ main() {
   fi
   chmod +x "${INSTALL_DIR}/${BINARY}"
 
+  # Download default config to ~/.zion-node/ (skip if already exists)
+  local config_dir="${HOME}/.zion-node"
+  local config_file="${config_dir}/config.toml"
+  mkdir -p "$config_dir"
+
+  if [ ! -f "$config_file" ]; then
+    echo "==> Downloading default config to ${config_file}..."
+    local config_url="https://raw.githubusercontent.com/${REPO}/main/config.toml"
+    if command -v curl &>/dev/null; then
+      curl -fsSL -o "${config_file}" "$config_url"
+    else
+      wget -qO "${config_file}" "$config_url"
+    fi
+  else
+    echo "==> Config already exists at ${config_file}, skipping download"
+  fi
+
   echo ""
   echo "==> zion-node installed successfully!"
   echo "    Version: $(${INSTALL_DIR}/${BINARY} version 2>/dev/null || echo "$version")"
+  echo "    Config:  ${config_file}"
   echo ""
   echo "    Next steps:"
-  echo "      zion-node wallet new"
-  echo "      cp config.example.toml ~/.zion-node/config.toml"
-  echo "      zion-node --config ~/.zion-node/config.toml"
+  echo "      zion-node wallet new          # Create a new wallet"
+  echo "      vim ${config_file}  # Edit hub_url etc."
+  echo "      zion-node                     # Start the node"
 }
 
 main "$@"

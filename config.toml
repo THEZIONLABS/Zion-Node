@@ -1,0 +1,33 @@
+# Zion Node — Default Configuration
+# Auto-downloaded by install.sh to ~/.zion-node/config.toml
+
+# Node identity (auto-generated on first run if empty)
+node_id = ""
+# operator_address will be auto-loaded from wallet (~/.zion-node/wallet.json)
+
+# Hub connection
+hub_url = "https://hub.zion.space"
+# hub_public_key is automatically fetched from hub at startup
+# hub_auth_token (optional, will auto-login if not set)
+
+# Capacity
+max_agents = 10
+cpu_per_agent = 1
+memory_per_agent = 512  # MB
+storage_per_agent = 10240  # MB
+
+# Storage
+data_dir = "./data"
+snapshot_cache = "./cache"
+
+# Container
+runtime_image = "alpine/openclaw:main"
+
+# Heartbeat
+heartbeat_interval = 10  # seconds (faster for testing)
+
+# Logging
+log_level = "info"
+
+# HTTP
+http_timeout = 10  # seconds

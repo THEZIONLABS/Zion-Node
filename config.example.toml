@@ -1,11 +1,11 @@
-    # Zion Node — Remote Hub Configuration
+# Zion Node — Remote Hub Configuration
 # Usage:
-#   1. cp config.example.toml config.toml
+#   1. cp config.example.toml ~/.zion-node/config.toml
 #   2. Edit config.toml with your Hub endpoint and settings
-#   3. ./release/zion-node --config config.toml
+#   3. zion-node
 
-# Node identity
-node_id = "my-node-001"  # Choose a unique identifier for your node
+# Node identity (auto-generated on first run if empty)
+node_id = ""
 # operator_address will be auto-loaded from wallet (~/.zion-node/wallet.json)
 
 # Wallet directory (default: ~/.zion-node)
@@ -28,19 +28,12 @@ data_dir = "./data"
 snapshot_cache = "./cache"
 
 # Container
-container_engine = "docker"
 runtime_image = "alpine/openclaw:main"
 
 # Heartbeat
 heartbeat_interval = 10  # seconds
-heartbeat_retry_max = 3
-heartbeat_retry_interval = 5  # seconds
-
-# Snapshot
-snapshot_retention_days = 3
 
 # Logging
-log_dir = "./logs"
 log_level = "info"
 
 # HTTP

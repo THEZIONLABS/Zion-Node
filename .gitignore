@@ -1,8 +1,7 @@
 .go
 
-# Runtime config files (use config.example.toml as template)
-# config.local.toml and config.remote.toml are checked in as examples
-config.toml
+# Runtime config files
+# config.remote.toml contains real hub URLs, keep ignored
 
 # Environment files
 .env

@@ -1,8 +1,8 @@
 # Zion Node — Local Development Configuration
 # Usage: ./zion-node --config config.local.toml
 
-# Node identity
-node_id = "local-dev-node-007"
+# Node identity (auto-generated on first run if empty)
+node_id = ""
 # operator_address will be auto-loaded from wallet (~/.zion-node/wallet.json)
 
 # Wallet directory (default: ~/.zion-node)
@@ -23,19 +23,12 @@ data_dir = "./data"
 snapshot_cache = "./cache"
 
 # Container
-container_engine = "docker"
 runtime_image = "alpine/openclaw:main"
 
 # Heartbeat
 heartbeat_interval = 10  # seconds (faster for local dev)
-heartbeat_retry_max = 3
-heartbeat_retry_interval = 5  # seconds
-
-# Snapshot
-snapshot_retention_days = 3
 
 # Logging
-log_dir = "./logs"
 log_level = "debug"  # verbose for local development
 
 # HTTP

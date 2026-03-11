@@ -1,6 +1,8 @@
 package config
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"os"
 	"path/filepath"
 
@@ -9,6 +11,9 @@ import (
 
 // SetDefaults sets default values for configuration
 func (c *Config) SetDefaults() {
+	if c.NodeID == "" {
+		c.NodeID = generateNodeID()
+	}
 	if c.MaxAgents == 0 {
 		c.MaxAgents = 50
 	}
@@ -85,4 +90,14 @@ func (c *Config) loadWalletAddress() string {
 	}
 
 	return wallet.Address
+}
+
+// generateNodeID creates a random node ID in the format "node-xxxxxxxxxxxx" (12 hex chars).
+func generateNodeID() string {
+	b := make([]byte, 6)
+	if _, err := rand.Read(b); err != nil {
+		// Fallback: should never happen with crypto/rand
+		return "node-000000000000"
+	}
+	return "node-" + hex.EncodeToString(b)
 }
