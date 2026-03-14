@@ -257,8 +257,12 @@ func (m *Manager) HandleContainerFailure(ctx context.Context, agentID string, re
 
 		// Stop and remove container (best effort, only if containerID is valid)
 		if containerID != "" {
-			_ = m.container.Stop(ctx, containerID)
-			_ = m.container.Remove(ctx, containerID)
+			if err := m.container.Stop(ctx, containerID); err != nil {
+				m.logger.WithError(err).WithField("container_id", containerID).Warn("Failed to stop dead agent container")
+			}
+			if err := m.container.Remove(ctx, containerID); err != nil {
+				m.logger.WithError(err).WithField("container_id", containerID).Warn("Failed to remove dead agent container")
+			}
 		}
 
 		m.mu.Lock()
@@ -285,8 +289,12 @@ func (m *Manager) restartAgent(ctx context.Context, agentID string) {
 	m.mu.Unlock()
 
 	// Stop old container
-	_ = m.container.Stop(ctx, oldContainerID)
-	_ = m.container.Remove(ctx, oldContainerID)
+	if err := m.container.Stop(ctx, oldContainerID); err != nil {
+		m.logger.WithError(err).WithField("container_id", oldContainerID).Warn("Failed to stop old container during restart")
+	}
+	if err := m.container.Remove(ctx, oldContainerID); err != nil {
+		m.logger.WithError(err).WithField("container_id", oldContainerID).Warn("Failed to remove old container during restart")
+	}
 
 	// Create new container (this will generate a new unique ID)
 	containerID, err := m.container.Create(ctx, agentID, profile, "", nil)
