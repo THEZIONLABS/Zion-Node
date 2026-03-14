@@ -342,15 +342,19 @@ func (d *Daemon) sendHeartbeat(ctx context.Context) error {
 	// Process Hub commands with bounded concurrency to avoid overwhelming
 	// the Docker daemon with simultaneous container operations.
 	if len(commands) > 0 {
+		var wg sync.WaitGroup
 		sem := make(chan struct{}, maxConcurrentCommands)
 		for i := range commands {
 			cmd := commands[i] // capture for goroutine
+			wg.Add(1)
 			sem <- struct{}{}
 			go func() {
+				defer wg.Done()
 				defer func() { <-sem }()
 				d.processHubCommand(ctx, &cmd)
 			}()
 		}
+		wg.Wait()
 	}
 
 	return nil
