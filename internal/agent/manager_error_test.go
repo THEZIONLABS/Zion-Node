@@ -712,7 +712,7 @@ func (m *mockSnapshotEngine) Restore(ctx context.Context, agentID string, snapsh
 	return m.restoreErr
 }
 
-// TestManagerStop_CheckpointCreateFailure verifies Stop returns error when checkpoint fails
+// TestManagerStop_CheckpointCreateFailure verifies Stop continues when checkpoint fails
 func TestManagerStop_CheckpointCreateFailure(t *testing.T) {
 	mockHub := testutil.NewMockHub()
 	defer mockHub.Close()
@@ -738,10 +738,18 @@ func TestManagerStop_CheckpointCreateFailure(t *testing.T) {
 		t.Fatalf("Run failed: %v", err)
 	}
 
-	// Stop with checkpoint=true
-	_, err = manager.Stop(ctx, "checkpoint-agent", true)
-	if err == nil {
-		t.Fatal("Expected error when checkpoint creation fails")
+	// Stop with checkpoint=true — should succeed even though checkpoint fails
+	ref, err := manager.Stop(ctx, "checkpoint-agent", true)
+	if err != nil {
+		t.Fatalf("Stop should succeed even with checkpoint failure, got: %v", err)
+	}
+	if ref != "" {
+		t.Errorf("Expected empty ref when checkpoint fails, got %s", ref)
+	}
+
+	// Agent should be removed from manager
+	if _, err := manager.GetAgent("checkpoint-agent"); err == nil {
+		t.Error("Agent should be removed after stop, but it still exists")
 	}
 }
 

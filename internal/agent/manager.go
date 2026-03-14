@@ -127,10 +127,9 @@ func (m *Manager) Stop(ctx context.Context, agentID string, createCheckpoint boo
 		if m.snapshotEngine != nil {
 			snapshotRef, err := m.snapshotEngine.Create(ctx, agentID, agent.ContainerID)
 			if err != nil {
-				// Log error - checkpoint creation failed
-				// Continue with stop but return error to caller
-				m.logger.WithError(err).WithField("agent_id", agentID).Error("Failed to create checkpoint before stop")
-				return "", fmt.Errorf("failed to create checkpoint: %w", err)
+				// Log error but continue with stop — a failed checkpoint should not
+				// prevent stopping the agent, as that creates zombie agents.
+				m.logger.WithError(err).WithField("agent_id", agentID).Error("Failed to create checkpoint before stop, continuing with stop")
 			} else if snapshotRef != nil {
 				checkpointRef = snapshotRef.Ref
 			}
