@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -12,6 +13,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"syscall"
 
@@ -52,6 +54,9 @@ func main() {
 		switch remainingArgs[0] {
 		case "wallet":
 			handleWalletCommand(remainingArgs[1:])
+			return
+		case "stop":
+			handleStopCommand()
 			return
 		case "update":
 			handleUpdateCommand()
@@ -204,6 +209,7 @@ func printHelp() {
 	fmt.Println()
 	fmt.Println("Usage:")
 	fmt.Println("  zion-node [flags]                Start the node daemon")
+	fmt.Println("  zion-node stop                   Gracefully stop a running node")
 	fmt.Println("  zion-node wallet <cmd>           Manage EVM wallet")
 	fmt.Println("  zion-node help                   Show this help")
 	fmt.Println("  zion-node version                Show version")
@@ -277,10 +283,16 @@ type githubRelease struct {
 }
 
 func handleUpdateCommand() {
-	// Check if another zion-node process is running (daemon).
-	selfPID := os.Getpid()
-	if isNodeRunning(selfPID) {
-		fmt.Fprintln(os.Stderr, "Error: another zion-node instance is currently running. Stop it before updating.")
+	// Check if another zion-node process is running via PID lock
+	walletDir := resolveWalletDir()
+	if walletDir == "" {
+		home, _ := os.UserHomeDir()
+		walletDir = filepath.Join(home, ".zion-node")
+	}
+	pidPath := filepath.Join(walletDir, "zion-node.pid")
+	if pid, valid := readPIDFile(pidPath); valid && isProcessAlive(pid) {
+		fmt.Fprintf(os.Stderr, "Error: zion-node is currently running (PID %d). Stop it before updating.\n"+
+			"  Run:  zion-node stop\n", pid)
 		os.Exit(1)
 	}
 
@@ -487,24 +499,122 @@ func copyFile(src, dst string) error {
 	return err
 }
 
-// isNodeRunning checks if another zion-node process (not ourselves) is running.
-func isNodeRunning(selfPID int) bool {
-	// Use pgrep to find zion-node processes
-	out, err := exec.Command("pgrep", "-x", "zion-node").Output()
+// readPIDFile reads and parses a PID file. Returns the PID and true if valid,
+// or 0 and false if the file doesn't exist or contains invalid content.
+func readPIDFile(pidPath string) (int, bool) {
+	data, err := os.ReadFile(pidPath)
 	if err != nil {
-		return false // pgrep returns error when no match
+		return 0, false
 	}
+	pid, err := strconv.Atoi(strings.TrimSpace(string(data)))
+	if err != nil || pid <= 0 {
+		return 0, false
+	}
+	return pid, true
+}
 
-	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
-		line = strings.TrimSpace(line)
-		if line == "" {
-			continue
-		}
-		if line != fmt.Sprintf("%d", selfPID) {
-			return true
-		}
+// isProcessAlive checks whether a process with the given PID is running.
+// Returns true if the process exists, even if we lack permission to signal it.
+func isProcessAlive(pid int) bool {
+	proc, err := os.FindProcess(pid)
+	if err != nil {
+		return false
+	}
+	err = proc.Signal(syscall.Signal(0))
+	if err == nil {
+		return true
+	}
+	// EPERM means the process exists but we can't signal it (different user)
+	if errors.Is(err, os.ErrPermission) {
+		return true
 	}
 	return false
+}
+
+// acquirePIDLock writes our PID to walletDir/zion-node.pid.
+// If the file already exists and the process is still alive, it returns an error.
+// Uses O_CREATE|O_EXCL for atomic creation to avoid TOCTOU races.
+func acquirePIDLock(walletDir string) (string, error) {
+	if err := os.MkdirAll(walletDir, 0750); err != nil {
+		return "", fmt.Errorf("create wallet dir: %w", err)
+	}
+	pidPath := filepath.Join(walletDir, "zion-node.pid")
+
+	// Try atomic create first — if the file doesn't exist, we win
+	f, err := os.OpenFile(pidPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0640)
+	if err == nil {
+		// We created it — write our PID
+		_, writeErr := f.WriteString(strconv.Itoa(os.Getpid()))
+		f.Close()
+		if writeErr != nil {
+			_ = os.Remove(pidPath)
+			return "", fmt.Errorf("write PID file: %w", writeErr)
+		}
+		return pidPath, nil
+	}
+
+	// File exists — check if the process is still alive
+	pid, valid := readPIDFile(pidPath)
+	if valid && isProcessAlive(pid) {
+		return pidPath, fmt.Errorf(
+			"another zion-node is already running (PID %d).\n\n"+
+				"  To switch to it:  ps -p %d -o tty=  (find which terminal it's on)\n"+
+				"  To stop it:       zion-node stop\n",
+			pid, pid)
+	}
+
+	// Stale or invalid PID file — overwrite with our PID
+	if err := os.WriteFile(pidPath, []byte(strconv.Itoa(os.Getpid())), 0640); err != nil {
+		return pidPath, fmt.Errorf("write PID file: %w", err)
+	}
+	return pidPath, nil
+}
+
+// releasePIDLock removes the PID file.
+func releasePIDLock(pidPath string) {
+	_ = os.Remove(pidPath)
+}
+
+// handleStopCommand sends SIGTERM to a running zion-node process.
+func handleStopCommand() {
+	// Resolve wallet dir to find PID file
+	walletDir := resolveWalletDir()
+	if walletDir == "" {
+		home, _ := os.UserHomeDir()
+		walletDir = filepath.Join(home, ".zion-node")
+	}
+	pidPath := filepath.Join(walletDir, "zion-node.pid")
+
+	pid, valid := readPIDFile(pidPath)
+	if !valid {
+		// Clean up invalid/empty PID file if it exists
+		if _, statErr := os.Stat(pidPath); statErr == nil {
+			fmt.Println("Invalid PID file found. Removing stale file.")
+			_ = os.Remove(pidPath)
+		} else {
+			fmt.Println("No running zion-node found (no PID file).")
+		}
+		return
+	}
+
+	if !isProcessAlive(pid) {
+		fmt.Printf("No running zion-node at PID %d (stale PID file). Cleaning up.\n", pid)
+		_ = os.Remove(pidPath)
+		return
+	}
+
+	// Send SIGTERM for graceful shutdown
+	proc, err := os.FindProcess(pid)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to find process (PID %d): %v\n", pid, err)
+		os.Exit(1)
+	}
+	if err := proc.Signal(syscall.SIGTERM); err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to stop zion-node (PID %d): %v\n", pid, err)
+		os.Exit(1)
+	}
+
+	fmt.Printf("Sent shutdown signal to zion-node (PID %d). It will exit gracefully.\n", pid)
 }
 
 func runDaemon() {
@@ -517,6 +627,13 @@ func runDaemon() {
 
 	// Re-initialize logger with config level
 	log = logger.NewLogrusLogger(cfg.LogLevel)
+
+	// Acquire PID lock — prevent multiple instances
+	pidPath, err := acquirePIDLock(cfg.WalletDir)
+	if err != nil {
+		log.WithError(err).Fatal("Cannot start zion-node")
+	}
+	defer releasePIDLock(pidPath)
 
 	// Setup file logging
 	logCloser, err := logger.SetupFileLogging(log, cfg.LogDir)
@@ -572,6 +689,14 @@ func runDaemonWithTUI() {
 
 	// Re-initialize logger with config level
 	log = logger.NewLogrusLogger(cfg.LogLevel)
+
+	// Acquire PID lock — prevent multiple instances
+	pidPath, err := acquirePIDLock(cfg.WalletDir)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+	defer releasePIDLock(pidPath)
 
 	// Setup file logging
 	logCloser, err := logger.SetupFileLogging(log, cfg.LogDir)
