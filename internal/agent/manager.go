@@ -331,3 +331,15 @@ func (m *Manager) GetContainerManager() (ContainerManager, bool) {
 	}
 	return nil, false
 }
+
+// ShutdownState shuts down the state saver, flushing pending saves.
+func (m *Manager) ShutdownState() {
+	m.stateManager.Shutdown()
+}
+
+// CloseContainerManager closes the container manager, releasing resources.
+func (m *Manager) CloseContainerManager() {
+	if closer, ok := m.container.(interface{ Close() error }); ok {
+		_ = closer.Close()
+	}
+}

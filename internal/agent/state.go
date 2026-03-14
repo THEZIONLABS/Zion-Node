@@ -87,6 +87,18 @@ func (s *StateManager) RemoveAgent(agentID string) {
 	s.saver.TriggerSave()
 }
 
+// Shutdown gracefully stops the state saver goroutine and performs a final save.
+func (s *StateManager) Shutdown() {
+	if s.saver != nil {
+		s.saver.Shutdown()
+	}
+	// Final synchronous save to ensure all state is persisted
+	if err := s.Save(); err != nil {
+		// Can't do much here, but at least the saver tried
+		_ = err
+	}
+}
+
 // GetAll returns all agents
 func (s *StateManager) GetAll() map[string]*types.Agent {
 	s.mu.RLock()

@@ -233,8 +233,18 @@ func (d *Daemon) Shutdown(ctx context.Context) error {
 	// Stop accepting new tasks
 	d.shuttingDown.Store(true)
 
-	// Wait for pending snapshot operations
-	// d.snapshotEngine.WaitForPending(shutdownCtx)
+	// Notify Hub immediately so it can reschedule agents to other nodes
+	// without waiting for the heartbeat timeout (30s). Best-effort: if
+	// this fails, the heartbeat monitor will eventually detect the node.
+	if err := d.hubClient.Deregister(shutdownCtx); err != nil {
+		d.logger.WithError(err).Warn("Failed to deregister from Hub (will be detected by heartbeat timeout)")
+	} else {
+		d.logger.Info("Deregistered from Hub — agents will be rescheduled")
+	}
+
+	// Stop container health monitor first to prevent it from
+	// triggering restarts while we're shutting down agents.
+	d.containerMonitor.Stop()
 
 	// Stop all agents
 	for _, agentInfo := range d.agentManager.ListAgents() {
@@ -246,8 +256,11 @@ func (d *Daemon) Shutdown(ctx context.Context) error {
 		}
 	}
 
-	// Save state
-	// d.agentManager.SaveState()
+	// Shutdown state saver (flushes pending saves + final save)
+	d.agentManager.ShutdownState()
+
+	// Close Docker client to release connections
+	d.agentManager.CloseContainerManager()
 
 	d.logger.Info("Shutdown complete")
 	return nil

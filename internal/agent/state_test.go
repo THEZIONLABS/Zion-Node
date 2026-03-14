@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/zion-protocol/zion-node/internal/config"
 	"github.com/zion-protocol/zion-node/internal/testutil"
 	"github.com/zion-protocol/zion-node/pkg/types"
 )
@@ -375,4 +376,55 @@ func TestStateManager_LoadThenSaveRoundtrip(t *testing.T) {
 	if agent.ContainerID != "container-rt" {
 		t.Errorf("Expected ContainerID=container-rt, got %s", agent.ContainerID)
 	}
+}
+
+// TestStateManager_ShutdownSavesState verifies Shutdown performs a final save
+func TestStateManager_ShutdownSavesState(t *testing.T) {
+	tmpDir, _ := os.MkdirTemp("", "state-shutdown-*")
+	defer os.RemoveAll(tmpDir)
+
+	stateFile := filepath.Join(tmpDir, "agents.json")
+	logger := testutil.NewTestLogger()
+
+	sm := NewStateManager(&config.Config{DataDir: tmpDir}, logger)
+	sm.stateFile = stateFile
+
+	// Add an agent
+	sm.SaveAgent(&types.Agent{
+		AgentID:     "agent-shutdown-test",
+		ContainerID: "container-123",
+		Status:      types.AgentStatusRunning,
+		StartedAt:   time.Now(),
+	})
+
+	// Shutdown — should flush and do final save
+	sm.Shutdown()
+
+	// Verify state was persisted
+	data, err := os.ReadFile(stateFile)
+	if err != nil {
+		t.Fatalf("State file not found after shutdown: %v", err)
+	}
+
+	var agents map[string]*types.Agent
+	if err := json.Unmarshal(data, &agents); err != nil {
+		t.Fatalf("Failed to unmarshal state file: %v", err)
+	}
+
+	if _, exists := agents["agent-shutdown-test"]; !exists {
+		t.Error("Expected agent-shutdown-test in saved state after shutdown")
+	}
+}
+
+// TestStateManager_ShutdownIdempotent verifies Shutdown can be called multiple times
+func TestStateManager_ShutdownIdempotent(t *testing.T) {
+	tmpDir, _ := os.MkdirTemp("", "state-shutdown-idem-*")
+	defer os.RemoveAll(tmpDir)
+
+	logger := testutil.NewTestLogger()
+	sm := NewStateManager(&config.Config{DataDir: tmpDir}, logger)
+	sm.stateFile = filepath.Join(tmpDir, "agents.json")
+
+	sm.Shutdown()
+	sm.Shutdown() // Should not panic
 }

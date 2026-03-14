@@ -185,6 +185,28 @@ func (c *Client) SendHeartbeat(ctx context.Context, agents []types.AgentInfo, ca
 	return hbResp.Commands, nil
 }
 
+// Deregister notifies Hub that this node is shutting down gracefully.
+// Hub will immediately mark the node offline and detach agents for rescheduling.
+// Errors are logged but not fatal — the hub will eventually detect the node
+// is gone via heartbeat timeout anyway.
+func (c *Client) Deregister(ctx context.Context) error {
+	path := fmt.Sprintf("/v1/nodes/%s/deregister", c.nodeID)
+	resp, err := c.httpClient.PostJSON(ctx, path, struct{}{})
+	if err != nil {
+		return &errors.ErrHubCommunication{Operation: "deregister", Err: err}
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return &errors.ErrHubCommunication{
+			Operation: "deregister",
+			Err:       fmt.Errorf("status %d: %s", resp.StatusCode, string(body)),
+		}
+	}
+	return nil
+}
+
 // UploadSnapshot uploads snapshot data to Hub, Hub will upload to S3
 func (c *Client) UploadSnapshot(ctx context.Context, agentID string, snapshotRef string, file io.Reader, size int64) (string, error) {
 	fields := map[string]string{

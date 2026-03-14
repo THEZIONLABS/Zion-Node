@@ -19,6 +19,7 @@ type StateSaver struct {
 	retryDelay   time.Duration
 	ctx          context.Context
 	cancel       context.CancelFunc
+	done         chan struct{} // closed when saveLoop exits
 }
 
 // NewStateSaver creates a new state saver
@@ -32,6 +33,7 @@ func NewStateSaver(stateManager *StateManager, logger *logrus.Logger) *StateSave
 		retryDelay:   time.Second,
 		ctx:          ctx,
 		cancel:       cancel,
+		done:         make(chan struct{}),
 	}
 	go saver.saveLoop()
 	return saver
@@ -40,9 +42,9 @@ func NewStateSaver(stateManager *StateManager, logger *logrus.Logger) *StateSave
 // Shutdown gracefully shuts down the state saver
 func (s *StateSaver) Shutdown() {
 	s.cancel()
-	// Wait for current save to complete (with timeout)
+	// Wait for saveLoop goroutine to exit (with timeout)
 	select {
-	case <-s.ctx.Done():
+	case <-s.done:
 	case <-time.After(5 * time.Second):
 	}
 }
@@ -61,6 +63,9 @@ func (s *StateSaver) TriggerSave() {
 }
 
 func (s *StateSaver) saveLoop() {
+	if s.done != nil {
+		defer close(s.done)
+	}
 	for {
 		select {
 		case <-s.ctx.Done():
