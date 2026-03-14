@@ -34,12 +34,12 @@ type Daemon struct {
 	snapshotEngine   *snapshot.Engine
 	hubClient        *hub.Client
 	logger           *logrus.Logger
-	shuttingDown     atomic.Bool        // atomic to avoid data race
-	cancelFunc       context.CancelFunc // set by Run(), used by shutdown command
-	startTime        time.Time          // set when Run() begins
+	shuttingDown     atomic.Bool // atomic to avoid data race
+	startTime        time.Time   // set when Run() begins
 
 	// Protected by mu
 	mu              sync.Mutex
+	cancelFunc      context.CancelFunc // set by Run(), used by shutdown command
 	lastHeartbeatAt time.Time
 	miningReward    string
 	tokenExpiresAt  time.Time // JWT expiry parsed from token
@@ -112,7 +112,9 @@ func NewDaemonWithLogger(cfg *config.Config, log *logrus.Logger) (*Daemon, error
 func (d *Daemon) Run(ctx context.Context) error {
 	// Wrap context with a cancel function so hub "shutdown" commands can stop the daemon
 	ctx, cancel := context.WithCancel(ctx)
+	d.mu.Lock()
 	d.cancelFunc = cancel
+	d.mu.Unlock()
 	d.startTime = time.Now()
 
 	// Log node identity and configuration on startup
@@ -594,8 +596,11 @@ func (d *Daemon) processHubCommand(ctx context.Context, cmd *types.HubCommand) {
 		if err := d.Shutdown(context.Background()); err != nil {
 			log.WithError(err).Error("Error during hub-initiated shutdown")
 		}
-		if d.cancelFunc != nil {
-			d.cancelFunc()
+		d.mu.Lock()
+		cf := d.cancelFunc
+		d.mu.Unlock()
+		if cf != nil {
+			cf()
 		}
 		return
 
