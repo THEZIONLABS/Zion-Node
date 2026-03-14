@@ -48,6 +48,7 @@ func NewEngine(cfg *config.Config, hubClient *hub.Client, containerManager Conta
 // Create creates a snapshot of agent state
 func (e *Engine) Create(ctx context.Context, agentID string, containerID string) (*types.SnapshotRef, error) {
 	// 1. Pause agent (SIGSTOP)
+	var paused bool
 	if e.containerManager != nil && containerID != "" {
 		if err := e.containerManager.Pause(ctx, containerID); err != nil {
 			return nil, &errors.ErrSnapshotOperation{
@@ -56,20 +57,34 @@ func (e *Engine) Create(ctx context.Context, agentID string, containerID string)
 				Err:       err,
 			}
 		}
+		paused = true
 		defer func() {
-			// Resume on error or success
-			if e.containerManager != nil && containerID != "" {
-				if err := e.containerManager.Resume(ctx, containerID); err != nil {
-					// Log resume failure - container may remain paused
-					// This is a critical error but we can't return error from defer
-					if e.logger != nil {
-						e.logger.WithFields(logrus.Fields{
-							"agent_id":     agentID,
-							"container_id": containerID,
-							"error":        err,
-						}).Error("CRITICAL: Failed to resume container after snapshot, container may remain paused")
-					}
+			if !paused {
+				return
+			}
+			// Resume with retries — a paused container is effectively dead
+			var resumeErr error
+			for attempt := 0; attempt < 3; attempt++ {
+				resumeErr = e.containerManager.Resume(ctx, containerID)
+				if resumeErr == nil {
+					return
 				}
+				if e.logger != nil {
+					e.logger.WithFields(logrus.Fields{
+						"agent_id":     agentID,
+						"container_id": containerID,
+						"attempt":      attempt + 1,
+						"error":        resumeErr,
+					}).Warn("Failed to resume container after snapshot, retrying...")
+				}
+				time.Sleep(time.Duration(attempt+1) * 500 * time.Millisecond)
+			}
+			if e.logger != nil {
+				e.logger.WithFields(logrus.Fields{
+					"agent_id":     agentID,
+					"container_id": containerID,
+					"error":        resumeErr,
+				}).Error("CRITICAL: Failed to resume container after snapshot after all retries, container may remain paused")
 			}
 		}()
 	}
