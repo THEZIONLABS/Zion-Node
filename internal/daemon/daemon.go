@@ -608,6 +608,18 @@ func (d *Daemon) processHubCommand(ctx context.Context, cmd *types.HubCommand) {
 		}
 		return
 
+	case "prompt":
+		// Send a message to the agent's OpenClaw gateway to trigger a conversation.
+		message, _ := cmd.Params["message"].(string)
+		if message == "" {
+			log.Warn("Prompt command missing message")
+			return
+		}
+		if err := d.agentManager.SendPrompt(cmdCtx, cmd.AgentID, message); err != nil {
+			log.WithError(err).Error("Failed to send prompt to agent")
+		}
+		return
+
 	case "probe":
 		// Anti-cheat: hub is verifying that the agent is actually running.
 		// Check that the agent container exists and is alive, then respond

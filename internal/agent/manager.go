@@ -1,8 +1,11 @@
 package agent
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
+	"net/http"
 	"sync"
 	"time"
 
@@ -329,6 +332,52 @@ func (m *Manager) restartAgent(ctx context.Context, agentID string) {
 	agCopy := *ag // copy while holding lock to avoid race with concurrent writers
 	m.mu.Unlock()
 	m.stateManager.SaveAgent(&agCopy)
+}
+
+// SendPrompt sends a message to a running agent via the OpenClaw gateway HTTP hook.
+// The gateway listens on port 18789 inside the container (bound to 0.0.0.0).
+func (m *Manager) SendPrompt(ctx context.Context, agentID string, message string) error {
+	m.mu.RLock()
+	agent, exists := m.agents[agentID]
+	if !exists {
+		m.mu.RUnlock()
+		return &errors.ErrAgentNotFound{AgentID: agentID}
+	}
+	containerID := agent.ContainerID
+	m.mu.RUnlock()
+
+	// Get container IP via inspect
+	status, err := m.container.Inspect(ctx, containerID)
+	if err != nil {
+		return fmt.Errorf("inspect container: %w", err)
+	}
+	if status.IPAddress == "" {
+		return fmt.Errorf("container %s has no bridge IP", containerID[:12])
+	}
+
+	// POST to OpenClaw gateway hook
+	url := fmt.Sprintf("http://%s:18789/hooks/agent", status.IPAddress)
+	body, _ := json.Marshal(map[string]string{"message": message})
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
+	if err != nil {
+		return fmt.Errorf("create request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+agentID) // gateway token = agent ID
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("gateway request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 400 {
+		return fmt.Errorf("gateway returned %d", resp.StatusCode)
+	}
+
+	m.logger.WithFields(logrus.Fields{"agent_id": agentID, "status": resp.StatusCode}).Info("Prompt sent to agent gateway")
+	return nil
 }
 
 // GetContainerManager returns the container manager (for accessing runtime image info)
