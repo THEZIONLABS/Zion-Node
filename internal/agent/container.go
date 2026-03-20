@@ -211,16 +211,13 @@ func (d *DockerManager) Create(ctx context.Context, agentID string, profile type
 		if raw, err := os.ReadFile(openclawCfg); err == nil {
 			_ = json.Unmarshal(raw, &existing)
 		}
-		// Ensure gateway.mode = "local" and bind = "lan" (so node can reach the gateway)
+		// Ensure gateway.mode = "local"
 		if gw, ok := existing["gateway"].(map[string]interface{}); ok {
 			if _, hasMode := gw["mode"]; !hasMode {
 				gw["mode"] = "local"
 			}
-			if _, hasBind := gw["bind"]; !hasBind {
-				gw["bind"] = "lan"
-			}
 		} else {
-			existing["gateway"] = map[string]interface{}{"mode": "local", "bind": "lan"}
+			existing["gateway"] = map[string]interface{}{"mode": "local"}
 		}
 		// Set default model from OPENCLAW_DEFAULT_MODEL env var.
 		// openclaw reads model from config (agents.defaults.model), not env vars.
@@ -460,9 +457,6 @@ func (d *DockerManager) Inspect(ctx context.Context, containerID string) (*types
 		status.OOMKilled = info.State.OOMKilled
 		status.FinishedAt = info.State.FinishedAt
 		status.Error = info.State.Error
-	}
-	if bridge, ok := info.NetworkSettings.Networks["bridge"]; ok && bridge != nil {
-		status.IPAddress = bridge.IPAddress
 	}
 	return status, nil
 }

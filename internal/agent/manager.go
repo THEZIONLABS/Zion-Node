@@ -1,11 +1,11 @@
 package agent
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	"net/http"
+	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -14,6 +14,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/zion-protocol/zion-node/internal/config"
 	"github.com/zion-protocol/zion-node/internal/errors"
+	"github.com/zion-protocol/zion-node/internal/utils"
 	"github.com/zion-protocol/zion-node/pkg/types"
 )
 
@@ -334,49 +335,55 @@ func (m *Manager) restartAgent(ctx context.Context, agentID string) {
 	m.stateManager.SaveAgent(&agCopy)
 }
 
-// SendPrompt sends a message to a running agent via the OpenClaw gateway HTTP hook.
-// The gateway listens on port 18789 inside the container (bound to 0.0.0.0).
+// SendPrompt sends a message to a running agent by writing a one-shot cron job
+// to the agent's data directory. OpenClaw's cron scheduler force-reloads
+// jobs.json on every timer tick and will execute the agentTurn payload.
 func (m *Manager) SendPrompt(ctx context.Context, agentID string, message string) error {
 	m.mu.RLock()
-	agent, exists := m.agents[agentID]
+	_, exists := m.agents[agentID]
 	if !exists {
 		m.mu.RUnlock()
 		return &errors.ErrAgentNotFound{AgentID: agentID}
 	}
-	containerID := agent.ContainerID
 	m.mu.RUnlock()
 
-	// Get container IP via inspect
-	status, err := m.container.Inspect(ctx, containerID)
+	dataDir := utils.AgentDataDir(m.cfg.DataDir, agentID)
+	cronDir := filepath.Join(dataDir, ".openclaw", "cron")
+	jobsFile := filepath.Join(cronDir, "jobs.json")
+
+	// Read existing jobs
+	var jobs []map[string]interface{}
+	if raw, err := os.ReadFile(jobsFile); err == nil {
+		_ = json.Unmarshal(raw, &jobs)
+	}
+
+	// Append a one-shot job that fires in 5 seconds
+	fireAt := time.Now().Add(5 * time.Second).UTC().Format(time.RFC3339)
+	jobs = append(jobs, map[string]interface{}{
+		"id":             fmt.Sprintf("zion-prompt-%d", time.Now().UnixNano()),
+		"name":           "Zion Prompt",
+		"schedule":       map[string]interface{}{"kind": "at", "at": fireAt},
+		"sessionTarget":  "isolated",
+		"payload":        map[string]interface{}{"kind": "agentTurn", "message": message},
+		"enabled":        true,
+		"deleteAfterRun": true,
+	})
+
+	// Write back
+	if err := os.MkdirAll(cronDir, 0755); err != nil {
+		return fmt.Errorf("create cron dir: %w", err)
+	}
+	data, err := json.MarshalIndent(jobs, "", "  ")
 	if err != nil {
-		return fmt.Errorf("inspect container: %w", err)
+		return fmt.Errorf("marshal jobs: %w", err)
 	}
-	if status.IPAddress == "" {
-		return fmt.Errorf("container %s has no bridge IP", containerID[:12])
+	if err := os.WriteFile(jobsFile, data, 0644); err != nil {
+		return fmt.Errorf("write jobs.json: %w", err)
 	}
+	_ = os.Chown(cronDir, 1000, 1000)
+	_ = os.Chown(jobsFile, 1000, 1000)
 
-	// POST to OpenClaw gateway hook
-	url := fmt.Sprintf("http://%s:18789/hooks/agent", status.IPAddress)
-	body, _ := json.Marshal(map[string]string{"message": message})
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
-	if err != nil {
-		return fmt.Errorf("create request: %w", err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+agentID) // gateway token = agent ID
-
-	client := &http.Client{Timeout: 10 * time.Second}
-	resp, err := client.Do(req)
-	if err != nil {
-		return fmt.Errorf("gateway request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode >= 400 {
-		return fmt.Errorf("gateway returned %d", resp.StatusCode)
-	}
-
-	m.logger.WithFields(logrus.Fields{"agent_id": agentID, "status": resp.StatusCode}).Info("Prompt sent to agent gateway")
+	m.logger.WithFields(logrus.Fields{"agent_id": agentID, "fire_at": fireAt}).Info("Prompt job written to cron/jobs.json")
 	return nil
 }
 

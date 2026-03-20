@@ -105,7 +105,6 @@ type ContainerStatus struct {
 	OOMKilled  bool   `json:"oom_killed"`
 	FinishedAt string `json:"finished_at"`
 	Error      string `json:"error,omitempty"`
-	IPAddress  string `json:"ip_address,omitempty"`
 }
 
 // RuntimeInfo represents detailed runtime information
