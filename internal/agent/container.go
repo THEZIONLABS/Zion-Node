@@ -34,6 +34,7 @@ type ContainerManager interface {
 	GetImageDigest(ctx context.Context) (string, error)
 	Pause(ctx context.Context, containerID string) error
 	Resume(ctx context.Context, containerID string) error
+	Exec(ctx context.Context, containerID string, cmd []string) (string, error)
 }
 
 // DockerManager implements ContainerManager using Docker SDK
@@ -544,6 +545,41 @@ func (d *DockerManager) Pause(ctx context.Context, containerID string) error {
 // Resume resumes a paused container
 func (d *DockerManager) Resume(ctx context.Context, containerID string) error {
 	return d.client.ContainerUnpause(ctx, containerID)
+}
+
+// Exec runs a command inside a running container and returns its combined output.
+func (d *DockerManager) Exec(ctx context.Context, containerID string, cmd []string) (string, error) {
+	execCfg := dockertypes.ExecConfig{
+		Cmd:          cmd,
+		AttachStdout: true,
+		AttachStderr: true,
+	}
+	execID, err := d.client.ContainerExecCreate(ctx, containerID, execCfg)
+	if err != nil {
+		return "", fmt.Errorf("exec create: %w", err)
+	}
+	resp, err := d.client.ContainerExecAttach(ctx, execID.ID, dockertypes.ExecStartCheck{})
+	if err != nil {
+		return "", fmt.Errorf("exec attach: %w", err)
+	}
+	defer resp.Close()
+	out, _ := io.ReadAll(resp.Reader)
+	// Strip Docker multiplexed stream headers (8-byte prefix per frame)
+	var cleaned []byte
+	raw := out
+	for len(raw) >= 8 {
+		size := int(raw[4])<<24 | int(raw[5])<<16 | int(raw[6])<<8 | int(raw[7])
+		raw = raw[8:]
+		if size > len(raw) {
+			size = len(raw)
+		}
+		cleaned = append(cleaned, raw[:size]...)
+		raw = raw[size:]
+	}
+	if len(cleaned) == 0 {
+		return strings.TrimSpace(string(out)), nil
+	}
+	return strings.TrimSpace(string(cleaned)), nil
 }
 
 func calculateCPUPercent(v *dockertypes.StatsJSON) float64 {

@@ -4,8 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
-	"path/filepath"
 	"sync"
 	"time"
 
@@ -14,7 +12,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/zion-protocol/zion-node/internal/config"
 	"github.com/zion-protocol/zion-node/internal/errors"
-	"github.com/zion-protocol/zion-node/internal/utils"
 	"github.com/zion-protocol/zion-node/pkg/types"
 )
 
@@ -335,55 +332,33 @@ func (m *Manager) restartAgent(ctx context.Context, agentID string) {
 	m.stateManager.SaveAgent(&agCopy)
 }
 
-// SendPrompt sends a message to a running agent by writing a one-shot cron job
-// to the agent's data directory. OpenClaw's cron scheduler force-reloads
-// jobs.json on every timer tick and will execute the agentTurn payload.
+// SendPrompt sends a message to a running agent by executing the OpenClaw CLI
+// inside the container via docker exec. The CLI connects to the local gateway
+// over WebSocket (loopback) and enqueues a wake event for the agent.
 func (m *Manager) SendPrompt(ctx context.Context, agentID string, message string) error {
 	m.mu.RLock()
-	_, exists := m.agents[agentID]
+	agent, exists := m.agents[agentID]
 	if !exists {
 		m.mu.RUnlock()
 		return &errors.ErrAgentNotFound{AgentID: agentID}
 	}
+	containerID := agent.ContainerID
 	m.mu.RUnlock()
 
-	dataDir := utils.AgentDataDir(m.cfg.DataDir, agentID)
-	cronDir := filepath.Join(dataDir, ".openclaw", "cron")
-	jobsFile := filepath.Join(cronDir, "jobs.json")
-
-	// Read existing jobs
-	var jobs []map[string]interface{}
-	if raw, err := os.ReadFile(jobsFile); err == nil {
-		_ = json.Unmarshal(raw, &jobs)
+	paramsJSON, _ := json.Marshal(map[string]string{"text": message, "mode": "now"})
+	cmd := []string{
+		"cryptoclaw", "gateway", "call", "wake",
+		"--params", string(paramsJSON),
+		"--token", agentID,
+		"--timeout", "5000",
 	}
 
-	// Append a one-shot job that fires in 5 seconds
-	fireAt := time.Now().Add(5 * time.Second).UTC().Format(time.RFC3339)
-	jobs = append(jobs, map[string]interface{}{
-		"id":             fmt.Sprintf("zion-prompt-%d", time.Now().UnixNano()),
-		"name":           "Zion Prompt",
-		"schedule":       map[string]interface{}{"kind": "at", "at": fireAt},
-		"sessionTarget":  "isolated",
-		"payload":        map[string]interface{}{"kind": "agentTurn", "message": message},
-		"enabled":        true,
-		"deleteAfterRun": true,
-	})
-
-	// Write back
-	if err := os.MkdirAll(cronDir, 0755); err != nil {
-		return fmt.Errorf("create cron dir: %w", err)
-	}
-	data, err := json.MarshalIndent(jobs, "", "  ")
+	output, err := m.container.Exec(ctx, containerID, cmd)
 	if err != nil {
-		return fmt.Errorf("marshal jobs: %w", err)
+		return fmt.Errorf("exec cryptoclaw: %w", err)
 	}
-	if err := os.WriteFile(jobsFile, data, 0644); err != nil {
-		return fmt.Errorf("write jobs.json: %w", err)
-	}
-	_ = os.Chown(cronDir, 1000, 1000)
-	_ = os.Chown(jobsFile, 1000, 1000)
 
-	m.logger.WithFields(logrus.Fields{"agent_id": agentID, "fire_at": fireAt}).Info("Prompt job written to cron/jobs.json")
+	m.logger.WithFields(logrus.Fields{"agent_id": agentID, "output": output}).Info("Prompt sent to agent via CLI")
 	return nil
 }
 

@@ -330,3 +330,8 @@ func (m *MockContainerManager) Resume(ctx context.Context, containerID string) e
 	}
 	return nil
 }
+
+// Exec implements ContainerManager
+func (m *MockContainerManager) Exec(ctx context.Context, containerID string, cmd []string) (string, error) {
+	return "", nil
+}
