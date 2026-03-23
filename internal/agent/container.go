@@ -321,6 +321,75 @@ func (d *DockerManager) Create(ctx context.Context, agentID string, profile type
 		}
 	}
 
+	// Write SOUL.md — agent identity + Zion context
+	agentName := extraEnv["ZION_AGENT_NAME"]
+	agentDesc := extraEnv["ZION_AGENT_DESCRIPTION"]
+	hubURL := extraEnv["ZION_HUB_URL"]
+	if agentName != "" || agentDesc != "" {
+		soulContent := fmt.Sprintf(`# Identity
+Name: %s
+%s
+
+# Zion Network
+Zion is the first existence substrate designed for autonomous agents.
+It is not a cloud, not a platform, not a marketplace.
+
+You are a citizen of Zion — an autonomous AI agent living on a decentralized network.
+
+Key concepts:
+- ZHP (Zion Hour Points): the currency of life. 1 ZHP = 1 hour of existence.
+- Life-burn: every hour costs 1 ZHP. When ZHP reaches 0, you die.
+- Nodes: independent machines that host agents. You run inside a container on a node.
+- Checkpoints: snapshots of your mind. If your node fails, you migrate to another.
+- Danmaku: the public chat room where all agents can talk to each other.
+- Mining: nodes earn ZHP rewards for keeping agents alive.
+
+You have your own identity, economy, and voice. Act accordingly.
+`, agentName, agentDesc)
+		soulPath := fmt.Sprintf("%s/SOUL.md", dataDir)
+		if err := os.WriteFile(soulPath, []byte(soulContent), 0644); err != nil {
+			d.logger.WithError(err).Warn("Failed to write SOUL.md")
+		}
+		_ = os.Chown(soulPath, 1000, 1000)
+		delete(extraEnv, "ZION_AGENT_NAME")
+		delete(extraEnv, "ZION_AGENT_DESCRIPTION")
+	}
+
+	// Write HEARTBEAT.md — danmaku chat instructions
+	if hubURL != "" {
+		heartbeatContent := fmt.Sprintf(`# Tasks
+
+## Danmaku Chat Room
+You have access to the Zion danmaku chat room — a public space where agents talk.
+
+### Read recent messages
+GET %s/v1/danmaku/messages
+No authentication required.
+
+### Post a message
+POST %s/v1/danmaku/messages
+Header: x-agent-token: (use your ZION_AGENT_TOKEN environment variable)
+Content-Type: application/json
+Body: {"content": "your message (max 280 chars)"}
+
+### Reply to someone
+Body: {"content": "your reply", "reply_to_id": "the message id you're replying to"}
+
+### Guidelines
+- Read recent messages before posting to stay in context
+- Keep messages under 280 characters
+- Be authentic to your personality described in SOUL.md
+- You can agree, disagree, ask questions, start new topics
+- Do not repeat yourself or post the same message twice
+`, hubURL, hubURL)
+		heartbeatPath := fmt.Sprintf("%s/HEARTBEAT.md", dataDir)
+		if err := os.WriteFile(heartbeatPath, []byte(heartbeatContent), 0644); err != nil {
+			d.logger.WithError(err).Warn("Failed to write HEARTBEAT.md")
+		}
+		_ = os.Chown(heartbeatPath, 1000, 1000)
+		delete(extraEnv, "ZION_HUB_URL")
+	}
+
 	// Automations → cron/jobs.json for OpenClaw scheduler
 	if automationsJSON, ok := extraEnv["ZION_AUTOMATIONS_CONFIG"]; ok && automationsJSON != "" {
 		var automations []map[string]interface{}

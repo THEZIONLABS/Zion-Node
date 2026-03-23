@@ -695,6 +695,15 @@ func (d *Daemon) buildAgentEnv(params map[string]interface{}) map[string]string 
 		env["ZION_AGENT_TOKEN"] = v
 	}
 
+	// Agent identity (for SOUL.md / HEARTBEAT.md injection)
+	if v, ok := params["agent_name"].(string); ok && v != "" {
+		env["ZION_AGENT_NAME"] = v
+	}
+	if v, ok := params["agent_description"].(string); ok && v != "" {
+		env["ZION_AGENT_DESCRIPTION"] = v
+	}
+	env["ZION_HUB_URL"] = d.cfg.HubURL
+
 	// LLM API key → provider-specific env var
 	llmProvider, _ := params["llm_provider"].(string)
 	llmModel, _ := params["llm_model"].(string)
