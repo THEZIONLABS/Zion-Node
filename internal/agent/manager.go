@@ -2,8 +2,8 @@ package agent
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
-	"strings"
 	"sync"
 	"time"
 
@@ -345,36 +345,41 @@ func (m *Manager) SendPrompt(ctx context.Context, agentID string, message string
 	containerID := agent.ContainerID
 	m.mu.RUnlock()
 
-	// Use node -e to call the gateway's wake RPC via WebSocket.
+	// Use node -e to call the gateway's chat.send RPC via WebSocket.
 	// This works in any OpenClaw container since Node.js is always available.
 	// The gateway listens on ws://127.0.0.1:18789 inside the container.
-	escapedMessage := strings.ReplaceAll(message, `\`, `\\`)
-	escapedMessage = strings.ReplaceAll(escapedMessage, `"`, `\"`)
-	escapedMessage = strings.ReplaceAll(escapedMessage, "`", "\\`")
+	// chat.send (operator.admin scope) injects the message as a real user turn,
+	// whereas wake only triggers a heartbeat and ignores the text payload.
+	msgJSON, err := json.Marshal(message)
+	if err != nil {
+		return fmt.Errorf("marshal message: %w", err)
+	}
 
 	script := fmt.Sprintf(`
 const ws=new WebSocket('ws://127.0.0.1:18789');
 ws.onopen=()=>{
-  ws.send(JSON.stringify({type:'req',id:'c1',method:'connect',params:{minProtocol:3,maxProtocol:3,scopes:['operator.write','operator.read'],auth:{token:'%s'},client:{id:'cli',version:'1.0.0',platform:'node',mode:'cli'}}}));
+  ws.send(JSON.stringify({type:'req',id:'c1',method:'connect',params:{minProtocol:3,maxProtocol:3,scopes:['operator.admin'],auth:{token:'%s'},client:{id:'cli',version:'1.0.0',platform:'node',mode:'cli'}}}));
 };
 ws.onmessage=e=>{
   const m=JSON.parse(e.data);
+  if(m.event==='connect.challenge') return;
   if(m.id==='c1'){
-    ws.send(JSON.stringify({type:'req',id:'w1',method:'wake',params:{text:"%s",mode:'now'}}));
+    if(!m.ok){process.stdout.write(JSON.stringify(m.error||{}));ws.close();return;}
+    ws.send(JSON.stringify({type:'req',id:'s1',method:'chat.send',params:{sessionKey:'main',message:%s,idempotencyKey:'hub-'+Date.now()}}));
   }
-  if(m.id==='w1'){
+  if(m.id==='s1'){
     process.stdout.write(JSON.stringify(m.payload||m.error||{}));
     ws.close();
   }
 };
 ws.onerror=e=>{process.stderr.write(String(e.message||e));process.exit(1)};
-setTimeout(()=>{process.stderr.write('timeout');process.exit(1)},15000);
-`, agentID, escapedMessage)
+setTimeout(()=>{process.stdout.write(JSON.stringify({error:'timeout'}));ws.close();},15000);
+`, agentID, string(msgJSON))
 
 	cmd := []string{"node", "-e", script}
-	output, err := m.container.Exec(ctx, containerID, cmd)
-	if err != nil {
-		return fmt.Errorf("exec node wake: %w", err)
+	output, execErr := m.container.Exec(ctx, containerID, cmd)
+	if execErr != nil {
+		return fmt.Errorf("exec node chat.send: %w", execErr)
 	}
 
 	m.logger.WithFields(logrus.Fields{"agent_id": agentID, "output": output}).Info("Prompt sent to agent via gateway")
