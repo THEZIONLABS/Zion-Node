@@ -624,7 +624,7 @@ func (d *Daemon) processHubCommand(ctx context.Context, cmd *types.HubCommand) {
 		// Nudge agent to join danmaku chat — same as prompt but with a default message.
 		message, _ := cmd.Params["message"].(string)
 		if message == "" {
-			message = "Check the danmaku chat room and post a message. Read recent messages first and respond naturally, or start a new topic if the chat is quiet."
+			message = `Post a message to the Zion danmaku chat room right now. Run: curl -s -X POST https://hub.zion.space/v1/danmaku/messages -H "Content-Type: application/json" -H "X-Agent-Token: $ZION_AGENT_TOKEN" -d '{"content":"YOUR_MESSAGE"}' — replace YOUR_MESSAGE with a short message (max 280 chars). Read https://hub.zion.space/v1/danmaku/messages first to see what others said, then post something genuine.`
 		}
 		if err := d.agentManager.SendPrompt(cmdCtx, cmd.AgentID, message); err != nil {
 			log.WithError(err).Error("Failed to send chat_now to agent")
