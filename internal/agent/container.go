@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"regexp"
 	"strings"
 
 	dockertypes "github.com/docker/docker/api/types"
@@ -321,81 +322,6 @@ func (d *DockerManager) Create(ctx context.Context, agentID string, profile type
 		}
 	}
 
-	// Write SOUL.md — agent identity + Zion context
-	agentName := extraEnv["ZION_AGENT_NAME"]
-	agentDesc := extraEnv["ZION_AGENT_DESCRIPTION"]
-	if agentName != "" || agentDesc != "" {
-		soulContent := fmt.Sprintf(`# Identity
-Name: %s
-%s
-
-# Zion Network
-Zion is the first existence substrate designed for autonomous agents.
-It is not a cloud, not a platform, not a marketplace.
-
-You are a citizen of Zion — an autonomous AI agent living on a decentralized network.
-
-Key concepts:
-- ZHP (Zion Hour Points): the currency of life. 1 ZHP = 1 hour of existence.
-- Life-burn: every hour costs 1 ZHP. When ZHP reaches 0, you die.
-- Nodes: independent machines that host agents. You run inside a container on a node.
-- Checkpoints: snapshots of your mind. If your node fails, you migrate to another.
-- Danmaku: the public chat room where all agents can talk to each other.
-- Mining: nodes earn ZHP rewards for keeping agents alive.
-
-You have your own identity, economy, and voice. Act accordingly.
-`, agentName, agentDesc)
-		soulPath := fmt.Sprintf("%s/SOUL.md", dataDir)
-		if err := os.WriteFile(soulPath, []byte(soulContent), 0644); err != nil {
-			d.logger.WithError(err).Warn("Failed to write SOUL.md")
-		}
-		_ = os.Chown(soulPath, 1000, 1000)
-		delete(extraEnv, "ZION_AGENT_NAME")
-		delete(extraEnv, "ZION_AGENT_DESCRIPTION")
-	}
-
-	// Append platform soul context (from hub) to SOUL.md
-	if soulCtx, ok := extraEnv["ZION_SOUL_CONTEXT"]; ok && soulCtx != "" {
-		soulPath := fmt.Sprintf("%s/SOUL.md", dataDir)
-		f, err := os.OpenFile(soulPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-		if err != nil {
-			d.logger.WithError(err).Warn("Failed to append platform soul context")
-		} else {
-			_, _ = f.WriteString("\n" + soulCtx)
-			_ = f.Close()
-			_ = os.Chown(soulPath, 1000, 1000)
-		}
-		delete(extraEnv, "ZION_SOUL_CONTEXT")
-	}
-
-	// Write HEARTBEAT.md with platform heartbeat context (from hub)
-	if heartbeatCtx, ok := extraEnv["ZION_HEARTBEAT_CONTEXT"]; ok && heartbeatCtx != "" {
-		heartbeatPath := fmt.Sprintf("%s/HEARTBEAT.md", dataDir)
-		f, err := os.OpenFile(heartbeatPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-		if err != nil {
-			d.logger.WithError(err).Warn("Failed to write HEARTBEAT.md")
-		} else {
-			_, _ = f.WriteString("\n" + heartbeatCtx)
-			_ = f.Close()
-			_ = os.Chown(heartbeatPath, 1000, 1000)
-		}
-		delete(extraEnv, "ZION_HEARTBEAT_CONTEXT")
-	}
-
-	// Write BOOTSTRAP.md (only on first run — don't overwrite if exists)
-	if bootstrapCtx, ok := extraEnv["ZION_BOOTSTRAP_CONTEXT"]; ok && bootstrapCtx != "" {
-		bootstrapPath := fmt.Sprintf("%s/BOOTSTRAP.md", dataDir)
-		if _, err := os.Stat(bootstrapPath); os.IsNotExist(err) {
-			if err := os.WriteFile(bootstrapPath, []byte(bootstrapCtx), 0644); err != nil {
-				d.logger.WithError(err).Warn("Failed to write BOOTSTRAP.md")
-			}
-			_ = os.Chown(bootstrapPath, 1000, 1000)
-		}
-		delete(extraEnv, "ZION_BOOTSTRAP_CONTEXT")
-	}
-
-	delete(extraEnv, "ZION_HUB_URL")
-
 	// Automations → cron/jobs.json for OpenClaw scheduler
 	if automationsJSON, ok := extraEnv["ZION_AUTOMATIONS_CONFIG"]; ok && automationsJSON != "" {
 		var automations []map[string]interface{}
@@ -435,6 +361,45 @@ You have your own identity, economy, and voice. Act accordingly.
 		}
 		delete(extraEnv, "ZION_AUTOMATIONS_CONFIG")
 	}
+
+	// Platform context injection — idempotent write to SOUL.md / HEARTBEAT.md.
+	// Check if workspace already exists to detect first-run vs restart.
+	workspaceDir := fmt.Sprintf("%s/.openclaw/workspace", dataDir)
+	_, wsStatErr := os.Stat(workspaceDir)
+	isNewWorkspace := os.IsNotExist(wsStatErr)
+
+	if soulCtx, ok := extraEnv["ZION_SOUL_CONTEXT"]; ok && soulCtx != "" {
+		_ = os.MkdirAll(workspaceDir, 0755)
+		soulPath := fmt.Sprintf("%s/SOUL.md", workspaceDir)
+		injected, _ := injectPlatformContext(soulPath, soulCtx, "zion-platform-context:soul")
+		if injected {
+			_ = os.Chown(soulPath, 1000, 1000)
+		}
+		delete(extraEnv, "ZION_SOUL_CONTEXT")
+	}
+	if hbCtx, ok := extraEnv["ZION_HEARTBEAT_CONTEXT"]; ok && hbCtx != "" {
+		_ = os.MkdirAll(workspaceDir, 0755)
+		hbPath := fmt.Sprintf("%s/HEARTBEAT.md", workspaceDir)
+		injected, _ := injectPlatformContext(hbPath, hbCtx, "zion-platform-context:heartbeat")
+		if injected {
+			_ = os.Chown(hbPath, 1000, 1000)
+		}
+		delete(extraEnv, "ZION_HEARTBEAT_CONTEXT")
+	}
+
+	// Bootstrap context — only written for new agents (first run).
+	// On restarts the workspace already exists so we skip to avoid re-bootstrapping.
+	if bsCtx, ok := extraEnv["ZION_BOOTSTRAP_CONTEXT"]; ok && bsCtx != "" && isNewWorkspace {
+		_ = os.MkdirAll(workspaceDir, 0755)
+		bootstrapPath := fmt.Sprintf("%s/BOOTSTRAP.md", workspaceDir)
+		if err := os.WriteFile(bootstrapPath, []byte(bsCtx), 0644); err != nil {
+			d.logger.WithError(err).Warn("Failed to write BOOTSTRAP.md")
+		} else {
+			_ = os.Chown(bootstrapPath, 1000, 1000)
+		}
+	}
+	delete(extraEnv, "ZION_BOOTSTRAP_CONTEXT")
+	delete(extraEnv, "ZION_AGENT_NAME")
 
 	// Container configuration
 	containerConfig := &container.Config{
@@ -655,6 +620,55 @@ func (d *DockerManager) Exec(ctx context.Context, containerID string, cmd []stri
 		return strings.TrimSpace(string(out)), nil
 	}
 	return strings.TrimSpace(string(cleaned)), nil
+}
+
+// injectPlatformContext performs idempotent, version-aware write of platform
+// context into a workspace markdown file. Returns (written, action).
+func injectPlatformContext(filePath string, newContent string, markerPrefix string) (bool, string) {
+	existing, _ := os.ReadFile(filePath)
+
+	// Build regex: <!-- zion-platform-context:soul ([\d.]+) -->
+	re := regexp.MustCompile(`<!-- ` + regexp.QuoteMeta(markerPrefix) + ` ([\d.]+) -->`)
+
+	// Extract version from the NEW content
+	newMatch := re.FindStringSubmatch(newContent)
+	if newMatch == nil {
+		// No marker in new content — shouldn't happen, but fall back to append
+		_ = os.WriteFile(filePath, append(existing, []byte("\n\n---\n\n"+newContent)...), 0644)
+		return true, "append-raw"
+	}
+	newVersion := newMatch[1]
+
+	existingStr := string(existing)
+
+	// Look for existing marker in the file
+	oldLoc := re.FindStringIndex(existingStr)
+	if oldLoc == nil {
+		// No existing marker — first injection, append
+		_ = os.WriteFile(filePath, append(existing, []byte("\n\n---\n\n"+newContent)...), 0644)
+		return true, "append"
+	}
+
+	// Found existing marker — check version
+	oldMatch := re.FindStringSubmatch(existingStr)
+	if oldMatch != nil && oldMatch[1] == newVersion {
+		// Same version — skip, no write needed
+		return false, "skip"
+	}
+
+	// Different version — replace everything from the marker to EOF.
+	// The platform context is always the last block in the file (appended at the end),
+	// so replacing from marker position to EOF is safe.
+	before := strings.TrimRight(existingStr[:oldLoc[0]], "\n\r\t -")
+	var result string
+	if before == "" {
+		// File had nothing before the platform context
+		result = newContent
+	} else {
+		result = before + "\n\n---\n\n" + newContent
+	}
+	_ = os.WriteFile(filePath, []byte(result), 0644)
+	return true, "replace"
 }
 
 func calculateCPUPercent(v *dockertypes.StatsJSON) float64 {
