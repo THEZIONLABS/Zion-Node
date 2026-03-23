@@ -353,13 +353,12 @@ func (m *Manager) SendPrompt(ctx context.Context, agentID string, message string
 	escapedMessage = strings.ReplaceAll(escapedMessage, "`", "\\`")
 
 	script := fmt.Sprintf(`
-const WebSocket=require('ws');
 const ws=new WebSocket('ws://127.0.0.1:18789');
-ws.on('open',()=>{
+ws.onopen=()=>{
   ws.send(JSON.stringify({type:'req',id:'c1',method:'connect',params:{token:'%s',client:{id:'zion-prompt',version:'1.0',platform:'cli',mode:'cli'}}}));
-});
-ws.on('message',d=>{
-  const m=JSON.parse(d);
+};
+ws.onmessage=e=>{
+  const m=JSON.parse(e.data);
   if(m.id==='c1'){
     ws.send(JSON.stringify({type:'req',id:'w1',method:'wake',params:{text:"%s",mode:'now'}}));
   }
@@ -367,9 +366,9 @@ ws.on('message',d=>{
     process.stdout.write(JSON.stringify(m.payload||m.error||{}));
     ws.close();
   }
-});
-ws.on('error',e=>{process.stderr.write(e.message);process.exit(1)});
-setTimeout(()=>{process.stderr.write('timeout');process.exit(1)},8000);
+};
+ws.onerror=e=>{process.stderr.write(String(e.message||e));process.exit(1)};
+setTimeout(()=>{process.stderr.write('timeout');process.exit(1)},15000);
 `, agentID, escapedMessage)
 
 	cmd := []string{"node", "-e", script}
