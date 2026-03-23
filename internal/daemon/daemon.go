@@ -620,6 +620,17 @@ func (d *Daemon) processHubCommand(ctx context.Context, cmd *types.HubCommand) {
 		}
 		return
 
+	case "chat_now":
+		// Nudge agent to join danmaku chat — same as prompt but with a default message.
+		message, _ := cmd.Params["message"].(string)
+		if message == "" {
+			message = "Check the danmaku chat room and post a message. Read recent messages first and respond naturally, or start a new topic if the chat is quiet."
+		}
+		if err := d.agentManager.SendPrompt(cmdCtx, cmd.AgentID, message); err != nil {
+			log.WithError(err).Error("Failed to send chat_now to agent")
+		}
+		return
+
 	case "probe":
 		// Anti-cheat: hub is verifying that the agent is actually running.
 		// Check that the agent container exists and is alive, then respond

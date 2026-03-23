@@ -2,8 +2,8 @@ package agent
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -345,20 +345,40 @@ func (m *Manager) SendPrompt(ctx context.Context, agentID string, message string
 	containerID := agent.ContainerID
 	m.mu.RUnlock()
 
-	paramsJSON, _ := json.Marshal(map[string]string{"text": message, "mode": "now"})
-	cmd := []string{
-		"cryptoclaw", "gateway", "call", "wake",
-		"--params", string(paramsJSON),
-		"--token", agentID,
-		"--timeout", "5000",
-	}
+	// Use node -e to call the gateway's wake RPC via WebSocket.
+	// This works in any OpenClaw container since Node.js is always available.
+	// The gateway listens on ws://127.0.0.1:18789 inside the container.
+	escapedMessage := strings.ReplaceAll(message, `\`, `\\`)
+	escapedMessage = strings.ReplaceAll(escapedMessage, `"`, `\"`)
+	escapedMessage = strings.ReplaceAll(escapedMessage, "`", "\\`")
 
+	script := fmt.Sprintf(`
+const WebSocket=require('ws');
+const ws=new WebSocket('ws://127.0.0.1:18789');
+ws.on('open',()=>{
+  ws.send(JSON.stringify({type:'req',id:'c1',method:'connect',params:{token:'%s',client:{id:'zion-prompt',version:'1.0',platform:'cli',mode:'cli'}}}));
+});
+ws.on('message',d=>{
+  const m=JSON.parse(d);
+  if(m.id==='c1'){
+    ws.send(JSON.stringify({type:'req',id:'w1',method:'wake',params:{text:"%s",mode:'now'}}));
+  }
+  if(m.id==='w1'){
+    process.stdout.write(JSON.stringify(m.payload||m.error||{}));
+    ws.close();
+  }
+});
+ws.on('error',e=>{process.stderr.write(e.message);process.exit(1)});
+setTimeout(()=>{process.stderr.write('timeout');process.exit(1)},8000);
+`, agentID, escapedMessage)
+
+	cmd := []string{"node", "-e", script}
 	output, err := m.container.Exec(ctx, containerID, cmd)
 	if err != nil {
-		return fmt.Errorf("exec cryptoclaw: %w", err)
+		return fmt.Errorf("exec node wake: %w", err)
 	}
 
-	m.logger.WithFields(logrus.Fields{"agent_id": agentID, "output": output}).Info("Prompt sent to agent via CLI")
+	m.logger.WithFields(logrus.Fields{"agent_id": agentID, "output": output}).Info("Prompt sent to agent via gateway")
 	return nil
 }
 
