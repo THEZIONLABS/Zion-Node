@@ -355,7 +355,7 @@ func (m *Manager) SendPrompt(ctx context.Context, agentID string, message string
 	script := fmt.Sprintf(`
 const ws=new WebSocket('ws://127.0.0.1:18789');
 ws.onopen=()=>{
-  ws.send(JSON.stringify({type:'req',id:'c1',method:'connect',params:{token:'%s',client:{id:'zion-prompt',version:'1.0',platform:'cli',mode:'cli'}}}));
+  ws.send(JSON.stringify({type:'req',id:'c1',method:'connect',params:{minProtocol:1,maxProtocol:1,auth:{token:'%s'},client:{id:'cli',version:'1.0.0',platform:'node',mode:'cli'}}}));
 };
 ws.onmessage=e=>{
   const m=JSON.parse(e.data);
